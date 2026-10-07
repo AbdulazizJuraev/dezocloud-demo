@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DezoCloud — Kirish</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <form class="auth" id="form" autocomplete="on">
+    <img class="logo-img" src="./logo.svg" alt="DezoCloud">
+    <h1 id="title">Kirish</h1>
+    <p class="sub" id="sub">Surat va videolaringiz — bir joyda</p>
+
+    <div class="tabs" id="tabs" hidden>
+      <button type="button" data-mode="login" class="on">Kirish</button>
+      <button type="button" data-mode="register">Ro'yxatdan o'tish</button>
+    </div>
+
+    <label class="field" id="f-code" hidden>
+      <span>Taklif kodi</span>
+      <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX">
+      <small>Kodni sizga DezoCloud administratori bergan.</small>
+    </label>
+    <label class="field">
+      <span>Login</span>
+      <input id="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
+    </label>
+    <label class="field">
+      <span>Parol</span>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <small id="pwhint" hidden>Kamida 8 ta belgi.</small>
+    </label>
+
+    <div class="msg" id="msg" role="alert"></div>
+    <button class="btn primary" id="go" type="submit">Kirish</button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  let mode = 'login';
+  let regMode = 'invite';
+
+  const apply = () => {
+    const reg = mode === 'register';
+    $('#title').textContent = reg ? "Ro'yxatdan o'tish" : 'Kirish';
+    $('#go').textContent = reg ? "Ro'yxatdan o'tish" : 'Kirish';
+    $('#f-code').hidden = !reg;
+    $('#pwhint').hidden = !reg;
+    $('#password').autocomplete = reg ? 'new-password' : 'current-password';
+    $('#msg').textContent = '';
+    document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+  };
+
+  fetch('/api/config').then((r) => r.json()).then((c) => {
+    regMode = c.registration;
+    $('#tabs').hidden = false;
+    if (regMode === 'open') $('#code').placeholder = '(ixtiyoriy)';
+    // /login?kod=XXXXX-XXXXX havolasi bilan kelganda ro'yxatdan o'tish oynasi ochiladi
+    const kod = new URLSearchParams(location.search).get('kod');
+    if (kod) { $('#code').value = kod; mode = 'register'; }
+    apply();
+  }).catch(() => {});
+
+  $('#tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]');
+    if (b) { mode = b.dataset.mode; apply(); (mode === 'register' ? $('#code') : $('#username')).focus(); }
+  });
+
+  $('#form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('#go');
+    btn.disabled = true;
+    $('#msg').textContent = '';
+    try {
+      const body = { username: $('#username').value.trim(), password: $('#password').value };
+      if (mode === 'register') body.code = $('#code').value;
+      const r = await fetch(mode === 'register' ? '/api/register' : '/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Xato ${r.status}`);
+      location.href = './';
+    } catch (err) {
+      $('#msg').textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

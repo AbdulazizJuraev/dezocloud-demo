@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DezoCloud — Administrator</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/app.css">
+<script src="./js/mock.js"></script>
+<style>
+  body { overflow-y: auto; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 80px; }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 8px 0 16px; }
+  .bar h1 { margin: 0; font-size: 22px; font-weight: 400; flex: 1; }
+  section { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 8px; margin-bottom: 20px; }
+  section h2 { margin: 0 0 12px; font-size: 17px; font-weight: 500; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
+  .row .field { min-width: 120px; flex: 1; }
+  .row .field.sm { flex: 0 0 110px; min-width: 90px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .tablewrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+  .code { font-family: ui-monospace, Consolas, monospace; font-size: 14px; letter-spacing: .5px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; background: var(--bg-2); font-size: 12px; color: var(--muted); }
+  .tag.ok { background: #e6f4ea; color: #137333; } .tag.bad { background: #fce8e6; color: var(--danger); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.ok { background: #1e3a2a; color: #81c995; } :root:not([data-theme="light"]) .tag.bad { background: #4a2523; } }
+  .pill-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .newcodes { display: grid; gap: 6px; margin: 0 0 14px; padding: 12px 14px; background: var(--accent-bg); border-radius: 8px; }
+  .newcodes div { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mini { height: 28px; padding: 0 12px; font-size: 12px; }
+  .bar-usage { width: 90px; height: 4px; border-radius: 2px; background: var(--bg-3); overflow: hidden; margin-top: 4px; }
+  .bar-usage i { display: block; height: 100%; background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <a href="./" class="btn sm" id="back">← Ilovaga qaytish</a>
+    <h1>Administrator</h1>
+  </div>
+
+  <section>
+    <h2>Taklif kodlari</h2>
+    <div class="row">
+      <label class="field sm"><span>Hajm (GB)</span><input id="inv-gb" type="number" min="0" step="0.5" value="10"></label>
+      <label class="field sm"><span>Nechta kod</span><input id="inv-count" type="number" min="1" max="20" value="1"></label>
+      <label class="field sm"><span>Muddati (kun)</span><input id="inv-days" type="number" min="0" placeholder="cheksiz"></label>
+      <label class="field"><span>Izoh (kimga)</span><input id="inv-note" maxlength="120" placeholder="masalan: Aka Ali"></label>
+      <button class="btn primary" id="inv-make">Kod yaratish</button>
+    </div>
+    <div class="newcodes" id="newcodes" hidden></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Kod</th><th>Hajm</th><th>Izoh</th><th>Holati</th><th></th></tr></thead>
+      <tbody id="invites"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Foydalanuvchilar</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Login</th><th>Ishlatilgan</th><th>Fayllar</th><th>Oxirgi kirish</th><th>Holati</th><th></th></tr></thead>
+      <tbody id="users"></tbody>
+    </table></div>
+  </section>
+</div>
+<div id="overlay-root"></div>
+
+<script type="module">
+import { api, bytes, esc, toast, copyText, fullDate, promptText, modal, $, hydrateIcons } from './js/util.js';
+
+const GB = 1024 ** 3;
+const gb = (n) => (n == null ? 'cheksiz' : `${+(n / GB).toFixed(2)} GB`);
+
+async function loadInvites() {
+  const { items } = await api('/api/admin/invites');
+  $('#invites').innerHTML = items.length ? items.map((i) => {
+    const expired = i.expires_at && i.expires_at < Date.now();
+    const status = i.used_by ? `<span class="tag ok">ishlatilgan: ${esc(i.used_by_name || '—')}</span>`
+      : expired ? '<span class="tag bad">muddati o\'tgan</span>' : '<span class="tag">ishlatilmagan</span>';
+    return `<tr>
+      <td class="code">${esc(i.code)}</td>
+      <td>${gb(i.quota_bytes)}</td>
+      <td>${esc(i.note || '')}</td>
+      <td>${status}</td>
+      <td>${i.used_by ? '' : `<div class="pill-actions">
+        <button class="btn mini" data-copy="${esc(i.code)}">Havolani nusxalash</button>
+        <button class="btn mini danger" data-del="${esc(i.code)}">O'chirish</button></div>`}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" style="color:var(--muted)">Hozircha kod yo\'q</td></tr>';
+}
+
+async function loadUsers() {
+  const { items } = await api('/api/admin/users');
+  $('#users').innerHTML = items.map((u) => {
+    const pct = u.quota_bytes ? Math.min(100, (u.used / u.quota_bytes) * 100) : 0;
+    return `<tr>
+      <td><b>${esc(u.username)}</b> ${u.role === 'admin' ? '<span class="tag">admin</span>' : ''}</td>
+      <td>${bytes(u.used)} / ${gb(u.quota_bytes)}<div class="bar-usage"><i style="width:${pct}%"></i></div></td>
+      <td>${u.files}</td>
+      <td>${u.last_login_at ? fullDate(u.last_login_at) : '—'}</td>
+      <td>${u.disabled ? '<span class="tag bad">bloklangan</span>' : '<span class="tag ok">faol</span>'}</td>
+      <td><div class="pill-actions">
+        <button class="btn mini" data-quota="${u.id}" data-cur="${u.quota_bytes == null ? '' : +(u.quota_bytes / GB).toFixed(2)}">Hajm</button>
+        <button class="btn mini" data-pw="${u.id}" data-name="${esc(u.username)}">Parol</button>
+        <button class="btn mini ${u.disabled ? '' : 'danger'}" data-block="${u.id}" data-state="${u.disabled ? 0 : 1}">${u.disabled ? 'Blokdan chiqarish' : 'Bloklash'}</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+const inviteLink = (code) => `${location.origin}/login?kod=${encodeURIComponent(code)}`;
+
+$('#inv-make').onclick = async () => {
+  try {
+    const gbv = $('#inv-gb').value;
+    const { codes } = await api('/api/admin/invites', { method: 'POST', body: {
+      quotaGB: gbv === '' ? null : Number(gbv), count: Number($('#inv-count').value) || 1,
+      days: Number($('#inv-days').value) || 0, note: $('#inv-note').value,
+    } });
+    const box = $('#newcodes');
+    box.hidden = false;
+    box.innerHTML = `<b>Yangi kodlar (havolani yuboring):</b>` + codes.map((c) =>
+      `<div><span class="code">${esc(c)}</span><button class="btn mini" data-copy="${esc(c)}">Havolani nusxalash</button></div>`).join('');
+    $('#inv-note').value = '';
+    loadInvites();
+  } catch (e) { toast(e.message); }
+};
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  try {
+    if (t.dataset.copy) toast((await copyText(inviteLink(t.dataset.copy))) ? 'Havola nusxalandi' : 'Nusxalab bo\'lmadi');
+    else if (t.dataset.del) { await api(`/api/admin/invites/${encodeURIComponent(t.dataset.del)}`, { method: 'DELETE' }); loadInvites(); }
+    else if (t.dataset.block) {
+      await api(`/api/admin/users/${t.dataset.block}`, { method: 'PATCH', body: { disabled: t.dataset.state === '1' } });
+      loadUsers();
+    } else if (t.dataset.quota) {
+      const v = await promptText({ title: 'Hajm limiti (GB)', label: "Bo'sh qoldirsangiz cheksiz", value: t.dataset.cur, max: 8 });
+      if (v === null) return;   // bekor qilindi (bo'sh qiymat = cheksiz)
+      await api(`/api/admin/users/${t.dataset.quota}`, { method: 'PATCH', body: { quotaGB: v === '' ? null : Number(v) } });
+      loadUsers(); toast('Hajm yangilandi');
+    } else if (t.dataset.pw) {
+      const v = await promptText({ title: `${t.dataset.name} uchun yangi parol`, label: 'Kamida 8 ta belgi', max: 200, ok: "O'zgartirish" });
+      if (!v) return;
+      await api(`/api/admin/users/${t.dataset.pw}/password`, { method: 'POST', body: { password: v } });
+      toast("Parol o'zgartirildi, foydalanuvchi qayta kiradi");
+    }
+  } catch (err) { toast(err.message); }
+});
+
+hydrateIcons();
+loadInvites(); loadUsers();
+</script>
+</body>
+</html>

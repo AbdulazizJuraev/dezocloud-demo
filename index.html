@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DezoCloud</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top" id="top">
+    <div class="brand">
+      <button class="icon-btn" id="menu-btn" aria-label="Menyu"></button>
+      <img class="logo-img" src="./logo.svg" alt="DezoCloud" style="height:24px">
+    </div>
+    <div class="search">
+      <button class="icon-btn" tabindex="-1" aria-hidden="true" data-icon="search"></button>
+      <input id="search" type="search" placeholder="Fayl nomi bo'yicha qidirish" autocomplete="off">
+      <button class="icon-btn" id="search-clear" aria-label="Tozalash" hidden data-icon="close"></button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn primary only-wide" id="upload-btn"><span data-icon="upload"></span>Yuklash</button>
+    <button class="avatar" id="avatar" aria-label="Hisob">?</button>
+  </header>
+
+  <aside class="side" id="side">
+    <nav class="nav" id="nav">
+      <button data-view="photos"><span data-icon="photo"></span>Fotolar<span class="count" id="c-photos"></span></button>
+      <button data-view="albums"><span data-icon="album"></span>Albomlar</button>
+      <button data-view="videos"><span data-icon="video"></span>Videolar<span class="count" id="c-videos"></span></button>
+      <button data-view="favorites"><span data-icon="star"></span>Sevimlilar<span class="count" id="c-fav"></span></button>
+      <hr>
+      <button data-view="trash"><span data-icon="delete"></span>Savatcha<span class="count" id="c-trash"></span></button>
+    </nav>
+    <div class="meter" id="meter" hidden>
+      <div class="bar"><i id="meter-fill"></i></div>
+      <div id="meter-text"></div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <main class="main" id="main"></main>
+</div>
+
+<div class="selbar" id="selbar" hidden></div>
+<button class="fab" id="fab" aria-label="Yuklash" data-icon="upload"></button>
+<nav class="tabbar" id="tabbar">
+  <button data-view="photos"><span data-icon="photo"></span>Fotolar</button>
+  <button data-view="albums"><span data-icon="album"></span>Albomlar</button>
+  <button data-view="favorites"><span data-icon="star"></span>Sevimli</button>
+  <button data-view="trash"><span data-icon="delete"></span>Savatcha</button>
+</nav>
+<input type="file" id="file" accept="image/*,video/*,.heic,.heif,.mkv,.mts,.m2ts" multiple hidden>
+<div id="overlay-root"></div>
+
+<script src="./js/mock.js"></script>
+<script src="./js/app.js" type="module"></script>
+</body>
+</html>
