@@ -7,44 +7,74 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./css/app.css">
+<style>
+  .gwrap { display: grid; justify-items: center; gap: 14px; }
+  .gsep { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin: 2px 0; }
+  .gsep::before, .gsep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  /* Demo uchun Google tugmasi nusxasi (haqiqiy tugmani Google o'zi chizadi) */
+  .g-fake {
+    display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; height: 44px;
+    border: 1px solid var(--line); border-radius: 22px; background: var(--bg); font-weight: 500; font-size: 14px;
+  }
+  .g-fake:hover { background: var(--bg-2); }
+  .g-fake svg { width: 18px; height: 18px; }
+  .codebox { display: grid; gap: 10px; padding: 14px; background: var(--accent-bg); border-radius: 10px; }
+  .codebox p { margin: 0; font-size: 13px; }
+  .codebox .btn { width: 100%; }
+</style>
 </head>
 <body>
 <div class="auth-wrap">
-  <form class="auth" id="form" autocomplete="on">
+  <div class="auth">
     <img class="logo-img" src="./logo.svg" alt="DezoCloud">
     <h1 id="title">Kirish</h1>
     <p class="sub" id="sub">Surat va videolaringiz — bir joyda</p>
 
-    <div class="tabs" id="tabs" hidden>
-      <button type="button" data-mode="login" class="on">Kirish</button>
-      <button type="button" data-mode="register">Ro'yxatdan o'tish</button>
+    <!-- Google bilan kirish (GOOGLE_CLIENT_ID sozlanganda ko'rinadi) -->
+    <div id="google" hidden>
+      <div class="gwrap"><div id="g-btn" style="width:100%;display:flex;justify-content:center"></div></div>
+      <div class="codebox" id="codebox" hidden>
+        <p><b>Birinchi marta kiryapsiz.</b> Administrator bergan taklif kodini kiriting:</p>
+        <label class="field"><span>Taklif kodi</span><input id="gcode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX"></label>
+        <button class="btn primary" id="gcode-go" type="button">Davom etish</button>
+      </div>
+      <div class="gsep" style="margin-top:14px">yoki login va parol bilan</div>
     </div>
 
-    <label class="field" id="f-code" hidden>
-      <span>Taklif kodi</span>
-      <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX">
-      <small>Kodni sizga DezoCloud administratori bergan.</small>
-    </label>
-    <label class="field">
-      <span>Login</span>
-      <input id="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
-    </label>
-    <label class="field">
-      <span>Parol</span>
-      <input id="password" type="password" autocomplete="current-password" required>
-      <small id="pwhint" hidden>Kamida 8 ta belgi.</small>
-    </label>
+    <form id="form" autocomplete="on" style="display:grid;gap:14px">
+      <div class="tabs" id="tabs" hidden>
+        <button type="button" data-mode="login" class="on">Kirish</button>
+        <button type="button" data-mode="register">Ro'yxatdan o'tish</button>
+      </div>
 
-    <div class="msg" id="msg" role="alert"></div>
-    <button class="btn primary" id="go" type="submit">Kirish</button>
-  </form>
+      <label class="field" id="f-code" hidden>
+        <span>Taklif kodi</span>
+        <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX">
+        <small>Kodni sizga DezoCloud administratori bergan.</small>
+      </label>
+      <label class="field">
+        <span>Login</span>
+        <input id="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32">
+      </label>
+      <label class="field">
+        <span>Parol</span>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <small id="pwhint" hidden>Kamida 8 ta belgi.</small>
+      </label>
+
+      <div class="msg" id="msg" role="alert"></div>
+      <button class="btn primary" id="go" type="submit">Kirish</button>
+    </form>
+  </div>
 </div>
 
+<script src="./js/mock.js"></script>
 <script>
 (() => {
   const $ = (s) => document.querySelector(s);
   let mode = 'login';
   let regMode = 'invite';
+  let googleCredential = null;   // kod kerak bo'lib qolsa, tokenni saqlab turamiz
 
   const apply = () => {
     const reg = mode === 'register';
@@ -57,13 +87,58 @@
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   };
 
+  // ── Google bilan kirish ────────────────────────────────────────
+  async function googleLogin(credential, code) {
+    $('#msg').textContent = '';
+    const r = await fetch('/api/auth/google', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential, code }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = './'; return; }
+    if (j.needCode) {                       // yangi odam: taklif kodi so'raymiz
+      googleCredential = credential;
+      $('#codebox').hidden = false;
+      $('#gcode').focus();
+      $('#msg').textContent = r.status === 428 ? '' : j.error;
+      return;
+    }
+    $('#msg').textContent = j.error || `Xato ${r.status}`;
+  }
+
+  $('#gcode-go').onclick = () => googleCredential && googleLogin(googleCredential, $('#gcode').value);
+  $('#gcode').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#gcode-go').click(); } });
+
+  function setupGoogle(clientId) {
+    $('#google').hidden = false;
+
+    // Namoyish (demo) sahifada haqiqiy Google yo'q - tugma nusxasi
+    if (clientId === 'demo') {
+      $('#g-btn').innerHTML = `<button type="button" class="g-fake" id="g-fake">
+        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Google bilan davom etish</button>`;
+      $('#g-fake').onclick = () => { location.href = './'; };
+      return;
+    }
+
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => {
+      google.accounts.id.initialize({ client_id: clientId, callback: (resp) => googleLogin(resp.credential) });
+      google.accounts.id.renderButton($('#g-btn'), { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 320 });
+    };
+    s.onerror = () => { $('#google').hidden = true; };   // Google yetib bo'lmasa (bloklangan) oddiy kirish qoladi
+    document.head.appendChild(s);
+  }
+
   fetch('/api/config').then((r) => r.json()).then((c) => {
     regMode = c.registration;
     $('#tabs').hidden = false;
     if (regMode === 'open') $('#code').placeholder = '(ixtiyoriy)';
+    if (c.googleClientId) setupGoogle(c.googleClientId);
     // /login?kod=XXXXX-XXXXX havolasi bilan kelganda ro'yxatdan o'tish oynasi ochiladi
     const kod = new URLSearchParams(location.search).get('kod');
-    if (kod) { $('#code').value = kod; mode = 'register'; }
+    if (kod) { $('#code').value = kod; $('#gcode').value = kod; mode = 'register'; }
     apply();
   }).catch(() => {});
 

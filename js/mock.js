@@ -36,12 +36,13 @@
   const err = (status, error) => Object.assign(new Error(error), { status });
   const albumOf = (id) => albums.find((a) => a.id === id) || (() => { throw err(404, 'Albom topilmadi'); })();
 
-  const user = () => ({ id: 'demo', username: 'demo', role: 'admin', quota: 15 * GB, used: used(), files: items.length });
+  const user = () => ({ id: 'demo', username: 'demo', email: 'demo@gmail.com', hasPassword: false, role: 'admin', quota: 15 * GB, used: used(), files: items.length });
 
   function handle(method, path, q, body) {
     let m;
     if (path === '/api/me') return { loggedIn: true, user: user(), registration: 'invite' };
-    if (path === '/api/config') return { registration: 'invite' };
+    if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo' };
+    if (path === '/api/login' || path === '/api/register' || path === '/api/auth/google') return { ok: true, user: user() };
     if (path === '/api/stats') {
       const l = live();
       return { total: l.length, images: l.filter((x) => x.kind === 'image').length, videos: l.filter((x) => x.kind === 'video').length,

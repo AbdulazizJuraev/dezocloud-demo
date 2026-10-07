@@ -655,8 +655,8 @@ $('#avatar').onclick = (e) => {
   const u = state.user;
   const quota = u.quota ? `${bytes(u.used)} / ${bytes(u.quota)}` : `${bytes(u.used)} (cheksiz)`;
   const m = openMenu(e.currentTarget, `
-    <div class="head"><b>${esc(u.username)}</b><span>${esc(quota)}</span></div>
-    <button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>
+    <div class="head"><b>${esc(u.username)}</b>${u.email ? `<span>${esc(u.email)}</span>` : ''}<span>${esc(quota)}</span></div>
+    ${u.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}
     ${u.role === 'admin' ? `<a href="./admin.html">${icon('shield')}Administrator paneli</a>` : ''}
     <button data-m="out">${icon('logout')}Chiqish</button>`);
   m.addEventListener('click', async (ev) => {
