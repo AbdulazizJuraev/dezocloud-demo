@@ -18,6 +18,8 @@
   }
   .g-fake:hover { background: var(--bg-2); }
   .g-fake svg { width: 18px; height: 18px; }
+  .linkbtn { border: 0; background: transparent; color: var(--accent); font-weight: 500; padding: 10px; margin: 6px auto 0; display: block; border-radius: 8px; }
+  .linkbtn:hover { background: var(--accent-bg); }
   .codebox { display: grid; gap: 10px; padding: 14px; background: var(--accent-bg); border-radius: 10px; }
   .codebox p { margin: 0; font-size: 13px; }
   .codebox .btn { width: 100%; }
@@ -38,7 +40,7 @@
         <label class="field"><span>Taklif kodi</span><input id="gcode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX"></label>
         <button class="btn primary" id="gcode-go" type="button">Davom etish</button>
       </div>
-      <div class="gsep" style="margin-top:14px">yoki login va parol bilan</div>
+      <button type="button" class="linkbtn" id="show-form">Login va parol bilan kirish</button>
     </div>
 
     <form id="form" autocomplete="on" style="display:grid;gap:14px">
@@ -108,6 +110,10 @@
   $('#gcode-go').onclick = () => googleCredential && googleLogin(googleCredential, $('#gcode').value);
   $('#gcode').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#gcode-go').click(); } });
 
+  // Google tugmasi ishlayotgan bo'lsa login-parol formasi yashirin turadi (kerak bo'lsa havola bilan ochiladi)
+  const tuckForm = () => { if (!$('#form').dataset.opened) $('#form').hidden = true; };
+  $('#show-form').onclick = () => { $('#form').dataset.opened = '1'; $('#form').hidden = false; $('#show-form').hidden = true; $('#username').focus(); };
+
   function setupGoogle(clientId) {
     $('#google').hidden = false;
 
@@ -117,6 +123,7 @@
         <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
         Google bilan davom etish</button>`;
       $('#g-fake').onclick = () => { location.href = './'; };
+      tuckForm();
       return;
     }
 
@@ -126,8 +133,9 @@
     s.onload = () => {
       google.accounts.id.initialize({ client_id: clientId, callback: (resp) => googleLogin(resp.credential) });
       google.accounts.id.renderButton($('#g-btn'), { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 320 });
+      tuckForm();
     };
-    s.onerror = () => { $('#google').hidden = true; };   // Google yetib bo'lmasa (bloklangan) oddiy kirish qoladi
+    s.onerror = () => { $('#google').hidden = true; $('#form').hidden = false; };   // Google yetib bo'lmasa (bloklangan) oddiy kirish qoladi
     document.head.appendChild(s);
   }
 
@@ -138,7 +146,7 @@
     if (c.googleClientId) setupGoogle(c.googleClientId);
     // /login?kod=XXXXX-XXXXX havolasi bilan kelganda ro'yxatdan o'tish oynasi ochiladi
     const kod = new URLSearchParams(location.search).get('kod');
-    if (kod) { $('#code').value = kod; $('#gcode').value = kod; mode = 'register'; }
+    if (kod) { $('#code').value = kod; $('#gcode').value = kod; mode = 'register'; $('#form').dataset.opened = '1'; $('#form').hidden = false; $('#show-form').hidden = true; }
     apply();
   }).catch(() => {});
 
