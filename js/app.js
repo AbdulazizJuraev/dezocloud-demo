@@ -164,6 +164,9 @@ async function loadStats() {
   } catch {}
 }
 $('#more-space').onclick = () => navigate('#/plans');
+// Xotira bloki (yozuv, chiziq, hajm) bosilsa: Xotirani boshqarish sahifasi
+$('#meter').addEventListener('click', (e) => { if (!e.target.closest('#more-space')) navigate('#/storage'); });
+$('#meter').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'meter') { e.preventDefault(); navigate('#/storage'); } });
 
 async function loadAlbums() {
   try {
