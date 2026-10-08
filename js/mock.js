@@ -55,6 +55,14 @@
         favorites: main.filter((x) => x.favorite).length, archive: l.length - main.length, places: main.filter((x) => x.lat != null).length,
         trash: items.length - l.length, ...user() };
     }
+    if (path === '/api/storage') {
+      const l = live(), sum = (arr) => arr.reduce((n, x) => n + x.size, 0);
+      const imgs = l.filter((x) => x.kind === 'image'), vids = l.filter((x) => x.kind === 'video'), tr = items.filter((x) => x.deleted_at), ar = l.filter((x) => x.archived);
+      return { used: used(), quota: 15 * GB,
+        images: { bytes: sum(imgs), n: imgs.length }, videos: { bytes: sum(vids), n: vids.length },
+        trash: { bytes: sum(tr), n: tr.length }, archive: { bytes: sum(ar), n: ar.length },
+        largest: l.slice().sort((x, y) => y.size - x.size).slice(0, 30).map(strip) };
+    }
     if (path === '/api/plans') {
       return { currency: 'UZS', yearlyMonths: 10, contact: '@dezo_admin', quota: 15 * GB, plans: [
         { id: 'free', name: 'Bepul', gb: 15, monthly: 0, recommended: false },

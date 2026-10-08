@@ -9,6 +9,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="./css/app.css">
+<script>try{var t=localStorage.getItem('dc-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <div class="app" id="app">
@@ -23,7 +24,10 @@
       <button class="icon-btn" id="search-clear" aria-label="Tozalash" hidden data-icon="close"></button>
     </div>
     <div class="spacer"></div>
-    <button class="btn primary only-wide" id="upload-btn"><span data-icon="upload"></span>Yuklash</button>
+    <button class="icon-btn only-wide" id="plus-btn" aria-label="Yaratish va yuklash" title="Yuklash" data-icon="add"></button>
+    <button class="icon-btn only-wide" id="help-btn" aria-label="Yordam" title="Yordam" data-icon="help"></button>
+    <button class="icon-btn only-wide" id="gear-btn" aria-label="Sozlamalar" title="Sozlamalar" data-icon="settings"></button>
+    <button class="icon-btn only-wide" id="apps-btn" aria-label="Bo'limlar" title="Bo'limlar" data-icon="apps"></button>
     <button class="icon-btn only-narrow" id="upload-icon" aria-label="Yuklash" data-icon="add"></button>
     <button class="avatar" id="avatar" aria-label="Hisob">?</button>
   </header>

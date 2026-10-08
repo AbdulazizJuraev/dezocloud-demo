@@ -24,7 +24,7 @@ const state = {
 const main = $('#main');
 const TITLES = {
   photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', places: 'Joylar',
-  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar",
+  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar", storage: 'Xotira',
 };
 
 // Joy katagi (~10 km) nomi: koordinatalar
@@ -183,6 +183,7 @@ async function reload() {
   if (state.view === 'collections') { renderCollections(); return; }
   if (state.view === 'places' && !state.search) { await renderPlaces(token); return; }
   if (state.view === 'plans') { await renderPlans(token); return; }
+  if (state.view === 'storage') { await renderStorage(token); return; }
   main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
   try {
     if (state.view === 'trash') {
@@ -610,6 +611,62 @@ function renderAlbums() {
   hydrateIcons(main);
 }
 
+// ── Xotirani boshqarish ───────────────────────────────────────────
+let storageData = null;
+
+async function renderStorage(token) {
+  disconnectObserver();
+  syncNav();
+  main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
+  try { storageData = await api('/api/storage'); } catch (e) { toast(e.message); return; }
+  if (token !== state.token) return;
+  drawStorage();
+}
+
+function drawStorage() {
+  const d = storageData;
+  const free = d.quota ? Math.max(0, d.quota - d.used) : null;
+  const seg = (b, c) => (d.quota && b ? `<i style="width:${Math.min(100, (b / d.quota) * 100)}%;background:${c}"></i>` : '');
+  const dot = (c, label, x) => `<div class="lg"><i style="background:${c}"></i><span>${label}</span><b>${bytes(x.bytes)}</b><em>${x.n} ta</em></div>`;
+  const pct = d.quota ? Math.round((d.used / d.quota) * 100) : 0;
+  main.innerHTML = `<div class="storage">
+    <h2 class="st-title">${free != null ? `Bo'sh: ${bytes(free)}` : 'Xotira'}</h2>
+    <p class="st-sub">${d.quota ? `Band: ${bytes(d.used)} / ${bytes(d.quota)} (${pct}%)` : `Band: ${bytes(d.used)} (cheklanmagan)`}${pct >= 90 ? " — joy tez orada tugaydi, yangi fayl yuklab bo'lmaydi." : ''}</p>
+    ${d.quota ? `<div class="st-bar ${pct >= 90 ? 'warn' : ''}">${seg(d.images.bytes, '#4285f4')}${seg(d.videos.bytes, '#ea4335')}${seg(d.trash.bytes, '#fbbc04')}</div>` : ''}
+    <div class="st-legend">${dot('#4285f4', 'Suratlar', d.images)}${dot('#ea4335', 'Videolar', d.videos)}${dot('#fbbc04', 'Savatcha', d.trash)}</div>
+    <div class="st-banner"><div><b>Xotirangiz kam bo'lyaptimi?</b><span>Kengroq tarifga o'ting: 500 GB dan 5 TB gacha, arzon narxlarda.</span></div><button class="btn primary" data-go="#/plans">Tariflarni ko'rish</button></div>
+    <h3 class="st-h">Keraksiz fayllarni o'chiring</h3>
+    <div class="st-cards">
+      <button class="st-card" data-go="#/trash"><span>${icon('delete')}</span><div><b>Savatcha</b><small>${d.trash.n} ta fayl</small></div><em>${bytes(d.trash.bytes)}</em></button>
+      <button class="st-card" data-go="#/archive"><span>${icon('archive')}</span><div><b>Arxiv</b><small>${d.archive.n} ta fayl</small></div><em>${bytes(d.archive.bytes)}</em></button>
+    </div>
+    <h3 class="st-h">Eng katta fayllar</h3>
+    ${d.largest.length ? `<div class="st-list">${d.largest.map((m, i) => `<div class="st-row" data-i="${i}">
+      <div class="st-th">${m.has_thumb ? `<img loading="lazy" alt="" src="./t/${m.id}">` : icon(m.kind === 'video' ? 'video' : 'photo')}</div>
+      <div class="st-nm"><b>${esc(m.name)}</b><small>${m.kind === 'video' ? 'Video' : 'Surat'}${m.duration ? ' · ' + duration(m.duration) : ''}</small></div>
+      <div class="st-sz">${bytes(m.size)}</div>
+      <button class="icon-btn" data-del="${esc(m.id)}" aria-label="Savatchaga" title="Savatchaga">${icon('delete')}</button>
+    </div>`).join('')}</div>` : '<div class="notice">Hali fayl yo\'q.</div>'}
+  </div>`;
+  hydrateIcons(main);
+}
+
+main.addEventListener('click', async (e) => {
+  if (state.view !== 'storage' || !storageData) return;
+  const del = e.target.closest('[data-del]');
+  const row = e.target.closest('.st-row');
+  if (del) {
+    try {
+      await bulk('trash', [del.dataset.del]);
+      toast('Savatchaga olindi (joy savatcha tozalanganda bo\'shaydi)');
+      await Promise.all([loadStats(), renderStorage(state.token)]);
+    } catch (err) { toast(err.message); }
+  } else if (row) {
+    state.items = storageData.largest.slice();
+    openViewer(state.items, Number(row.dataset.i), { ...viewerCtx(), closed: () => { if (state.view === 'storage') renderStorage(state.token); } });
+  }
+});
+
 // ── To'plamlar (telefonda asosiy bo'limlar) ───────────────────────
 function renderCollections() {
   disconnectObserver();
@@ -856,14 +913,13 @@ $('#search').addEventListener('input', (e) => {
   $('#search-clear').hidden = !e.target.value;
   searchTimer = setTimeout(() => {
     state.search = e.target.value.trim();
-    if (['albums', 'trash', 'collections', 'plans'].includes(state.view)) { navigate('#/photos'); return; }
+    if (['albums', 'trash', 'collections', 'plans', 'storage'].includes(state.view)) { navigate('#/photos'); return; }
     reload();
   }, 300);
 });
 $('#search-clear').onclick = () => { $('#search').value = ''; $('#search-clear').hidden = true; state.search = ''; reload(); };
 
 // ── Yuklash tugmalari ─────────────────────────────────────────────
-$('#upload-btn').onclick = () => $('#file').click();
 $('#fab').onclick = () => $('#file').click();
 $('#upload-icon').onclick = () => $('#file').click();
 $('#file').onchange = (e) => { enqueue(e.target.files, { maxFileSize: state.maxFileSize }); e.target.value = ''; };
@@ -885,18 +941,110 @@ window.addEventListener('drop', (e) => {
 });
 
 // ── Hisob menyusi ─────────────────────────────────────────────────
+// ── Tepa panel: yuklash (+), yordam, sozlamalar, bo'limlar, hisob ─────
+const THEMES = [['auto', 'Avto'], ['light', "Yorug'"], ['dark', "Qorong'i"]];
+const curTheme = () => { try { return localStorage.getItem('dc-theme') || 'auto'; } catch { return 'auto'; } };
+function setTheme(t) {
+  try { t === 'auto' ? localStorage.removeItem('dc-theme') : localStorage.setItem('dc-theme', t); } catch {}
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+}
+
+$('#plus-btn').onclick = (e) => {
+  const m = openMenu(e.currentTarget, `
+    <button data-m="up">${icon('upload')}Fayllarni yuklash</button>
+    <button data-m="album">${icon('album')}Yangi albom</button>`);
+  m.addEventListener('click', (ev) => {
+    const k = ev.target.closest('[data-m]')?.dataset.m;
+    if (k === 'up') $('#file').click();
+    else if (k === 'album') handleAct('new-album', ev);
+  });
+};
+
+$('#help-btn').onclick = async () => {
+  let contact = '';
+  try { contact = (await fetch('/api/config').then((r) => r.json())).contact || ''; } catch {}
+  const row = (ic, t, d) => `<div class="help-row"><span>${icon(ic)}</span><div><b>${t}</b><small>${d}</small></div></div>`;
+  const m = modal(`
+    <h2>Yordam</h2>
+    <div class="help">
+      ${row('upload', 'Yuklash', "«+» tugmasini bosing yoki suratlarni oynaga sudrab tashlang. Katta videolar ham bo'laklab yuklanadi, uzilsa davom etadi.")}
+      ${row('check', 'Tanlash', "Surat ustidagi doirani bosing. Shift tugmasi bilan oraliqni tanlash mumkin.")}
+      ${row('share', 'Ulashish', "Suratni oching → «Ulashish». Havola bor odam kirmasdan ko'ra oladi. Muddatini o'zingiz belgilaysiz.")}
+      ${row('delete', 'Savatcha', "O'chirilgan fayllar 30 kun saqlanadi, keyin butunlay o'chadi. Joy savatchada ham band bo'ladi.")}
+      ${row('archive', 'Arxiv', "Kerak bo'lmagan suratlarni «Fotolar»dan yashiradi, lekin o'chirmaydi.")}
+      ${row('cloud', 'Xotira', "Joy to'lib qolsa «Xotirani boshqarish» da eng katta fayllarni ko'rib, keraksizini o'chirishingiz mumkin.")}
+    </div>
+    ${contact ? `<div class="help-contact">Savol bo'lsa: <b>${esc(contact)}</b></div>` : ''}
+    <div class="help-links"><a href="/privacy" target="_blank">Maxfiylik siyosati</a> · <a href="/terms" target="_blank">Foydalanish shartlari</a></div>
+    <div class="actions"><button class="btn primary" data-x="ok">Yopish</button></div>`);
+  $('[data-x="ok"]', m).onclick = () => m.close();
+};
+
+$('#gear-btn').onclick = (e) => {
+  const t = curTheme();
+  const m = openMenu(e.currentTarget, `
+    <div class="head"><b>Sozlamalar</b></div>
+    <div class="menu-sec">Mavzu</div>
+    <div class="seg theme-seg">${THEMES.map(([k, n]) => `<button data-theme="${k}" class="${t === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+    <hr>
+    <button data-go="#/storage">${icon('cloud')}Xotirani boshqarish</button>
+    <button data-go="#/plans">${icon('star')}Tariflar</button>
+    ${state.user.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}`);
+  m.classList.add('wide');
+  m.addEventListener('click', (ev) => {
+    const th = ev.target.closest('[data-theme]');
+    if (th) { setTheme(th.dataset.theme); $$('.theme-seg button', m).forEach((x) => x.classList.toggle('on', x === th)); ev.stopPropagation(); return; }
+    if (ev.target.closest('[data-m="pw"]')) passwordDialog();
+    const g = ev.target.closest('[data-go]');
+    if (g) navigate(g.dataset.go);
+  }, true);
+};
+
+$('#apps-btn').onclick = (e) => {
+  const st = state.stats || {};
+  const tile = (go, ic, label, c, n) => `<button class="app-tile" data-go="${go}" style="--ac:${c}"><span>${icon(ic)}</span><b>${label}</b>${n ? `<i>${n}</i>` : ''}</button>`;
+  const m = openMenu(e.currentTarget, `
+    <div class="apps-grid">
+      ${tile('#/photos', 'photo', 'Fotolar', '#4285f4', st.total)}
+      ${tile('#/albums', 'album', 'Albomlar', '#34a853')}
+      ${tile('#/videos', 'video', 'Videolar', '#ea4335', st.videos)}
+      ${tile('#/favorites', 'star', 'Sevimlilar', '#fbbc04', st.favorites)}
+      ${tile('#/places', 'place', 'Joylar', '#9b5cf6', st.places)}
+      ${tile('#/recent', 'recent', 'Yaqinda', '#00acc1')}
+      ${tile('#/archive', 'archive', 'Arxiv', '#6d7a8a', st.archive)}
+      ${tile('#/trash', 'delete', 'Savatcha', '#ef6c00', st.trash)}
+      ${tile('#/storage', 'cloud', 'Xotira', '#1a73e8')}
+      ${tile('#/plans', 'star', 'Tariflar', '#e040fb')}
+      ${state.user.role === 'admin' ? `<a class="app-tile" href="/admin" style="--ac:#455a64"><span>${icon('shield')}</span><b>Admin</b></a>` : ''}
+    </div>`);
+  m.classList.add('apps');
+  m.addEventListener('click', (ev) => { const g = ev.target.closest('[data-go]'); if (g) navigate(g.dataset.go); });
+};
+
 $('#avatar').onclick = (e) => {
   const u = state.user;
-  const quota = u.quota ? `${bytes(u.used)} / ${bytes(u.quota)}` : `${bytes(u.used)} (cheksiz)`;
+  const full = u.quota ? Math.min(100, (u.used / u.quota) * 100) : 0;
   const m = openMenu(e.currentTarget, `
-    <div class="head"><b>${esc(u.username)}</b>${u.email ? `<span>${esc(u.email)}</span>` : ''}<span>${esc(quota)}</span></div>
+    <div class="acc-head">
+      <div class="acc-av">${esc(u.username[0] || '?')}</div>
+      <div class="acc-id"><b>${esc(u.username)}</b>${u.email ? `<span>${esc(u.email)}</span>` : ''}</div>
+    </div>
+    <div class="acc-store ${full >= 90 ? 'warn' : ''}">
+      <div class="acc-row"><span>${icon('cloud')}</span><b>${u.quota ? `Band: ${Math.round(full)}% (${bytes(u.used)} / ${bytes(u.quota)})` : `Band: ${bytes(u.used)}`}</b></div>
+      ${u.quota ? `<div class="bar"><i style="width:${Math.max(full, 1)}%"></i></div>` : ''}
+      <div class="acc-btns"><button data-go="#/plans">Joy sotib olish</button><button data-go="#/storage">Joy bo'shatish</button></div>
+    </div>
     ${u.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}
     ${u.role === 'admin' ? `<a href="./admin.html">${icon('shield')}Administrator paneli</a>` : ''}
-    <button data-m="out">${icon('logout')}Chiqish</button>`);
+    <button data-m="out">${icon('logout')}Chiqish</button>
+    <div class="acc-foot"><a href="/privacy" target="_blank">Maxfiylik</a> · <a href="/terms" target="_blank">Shartlar</a></div>`);
+  m.classList.add('account');
   m.addEventListener('click', async (ev) => {
+    const g = ev.target.closest('[data-go]');
+    if (g) { navigate(g.dataset.go); return; }
     const k = ev.target.closest('[data-m]')?.dataset.m;
     if (k === 'out') {
-      if (hasActive() && !(await confirmBox({ title: 'Chiqishni xohlaysizmi?', text: 'Yuklash hali tugamagan, chiqsangiz to\'xtaydi.', ok: 'Chiqish' }))) return;
+      if (hasActive() && !(await confirmBox({ title: 'Chiqishni xohlaysizmi?', text: "Yuklash hali tugamagan, chiqsangiz to'xtaydi.", ok: 'Chiqish' }))) return;
       await fetch('/api/logout', { method: 'POST' });
       location.href = './login.html';
     } else if (k === 'pw') passwordDialog();
