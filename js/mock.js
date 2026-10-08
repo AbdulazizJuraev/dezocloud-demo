@@ -47,7 +47,7 @@
   function handle(method, path, q, body) {
     let m;
     if (path === '/api/me') return { loggedIn: true, user: user(), registration: 'invite' };
-    if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo', yandex: true };
+    if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo', providers: ['microsoft', 'facebook', 'yandex'], emailLogin: true };
     if (path === '/api/login' || path === '/api/register' || path === '/api/auth/google') return { ok: true, user: user() };
     if (path === '/api/stats') {
       const l = live(), main = l.filter((x) => !x.archived);

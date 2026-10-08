@@ -8,21 +8,22 @@
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="./css/app.css">
 <style>
-  .gwrap { display: grid; justify-items: center; gap: 14px; }
-  .gsep { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin: 2px 0; }
-  .gsep::before, .gsep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-  /* Demo uchun Google tugmasi nusxasi (haqiqiy tugmani Google o'zi chizadi) */
-  .g-fake {
+  .social { display: grid; gap: 10px; }
+  .social .gwrap { display: grid; justify-items: center; }
+  .sbtn {
     display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; height: 44px;
     border: 1px solid var(--line); border-radius: 22px; background: var(--bg); font-weight: 500; font-size: 14px;
   }
-  .g-fake:hover { background: var(--bg-2); }
-  .g-fake svg { width: 18px; height: 18px; }
-  .linkbtn { border: 0; background: transparent; color: var(--accent); font-weight: 500; padding: 10px; margin: 6px auto 0; display: block; border-radius: 8px; }
+  .sbtn:hover { background: var(--bg-2); }
+  .sbtn svg { width: 18px; height: 18px; flex: none; }
+  .linkbtn { border: 0; background: transparent; color: var(--accent); font-weight: 500; padding: 10px; margin: 2px auto 0; display: block; border-radius: 8px; }
   .linkbtn:hover { background: var(--accent-bg); }
   .codebox { display: grid; gap: 10px; padding: 14px; background: var(--accent-bg); border-radius: 10px; }
   .codebox p { margin: 0; font-size: 13px; }
-  .codebox .btn { width: 100%; }
+  .codebox .btn, .emailbox .btn { width: 100%; }
+  .emailbox { display: grid; gap: 10px; }
+  .emailbox .hint { margin: 0; font-size: 13px; color: var(--muted); }
+  .otp { letter-spacing: .4em; text-align: center; font-size: 20px; }
 </style>
 </head>
 <body>
@@ -32,14 +33,24 @@
     <h1 id="title">Kirish</h1>
     <p class="sub" id="sub">Surat va videolaringiz — bir joyda</p>
 
-    <!-- Google bilan kirish (GOOGLE_CLIENT_ID sozlanganda ko'rinadi) -->
-    <div id="google" hidden>
-      <div class="gwrap">
-        <div id="g-btn" style="width:100%;display:flex;justify-content:center"></div>
-        <button type="button" class="g-fake" id="y-btn" hidden>
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#FC3F1D"/><path fill="#fff" d="M13.6 19.2h2.2V4.8h-3.2c-3.2 0-4.8 1.6-4.8 4 0 1.9.9 3.1 2.6 4.2l-3 6.2h2.3l3.3-6.8-1.1-.7c-1.3-.9-1.9-1.6-1.9-3 0-1.4.9-2.3 2.6-2.3h1v12.8z"/></svg>
-          Yandex bilan davom etish</button>
+    <!-- Tezkor kirish usullari: sozlangan bo'lsagina ko'rinadi -->
+    <div id="social" class="social" hidden>
+      <div class="gwrap"><div id="g-btn" style="width:100%;display:flex;justify-content:center"></div></div>
+      <div id="oa-btns" style="display:grid;gap:10px"></div>
+      <button type="button" class="sbtn" id="email-btn" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        Pochta orqali kod bilan</button>
+
+      <div class="emailbox" id="emailbox" hidden>
+        <label class="field"><span>Pochta manzilingiz</span><input id="em" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="ism@pochta.com"></label>
+        <button class="btn primary" id="em-send" type="button">Kod yuborish</button>
+        <div id="em-step2" hidden style="display:grid;gap:10px">
+          <p class="hint" id="em-hint"></p>
+          <label class="field"><span>Pochtaga kelgan 6 xonali kod</span><input id="otp" class="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······"></label>
+          <button class="btn primary" id="em-verify" type="button">Kirish</button>
+        </div>
       </div>
+
       <div class="codebox" id="codebox" hidden>
         <p><b>Birinchi marta kiryapsiz.</b> Administrator bergan taklif kodini kiriting:</p>
         <label class="field"><span>Taklif kodi</span><input id="gcode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX"></label>
@@ -82,6 +93,15 @@
   let mode = 'login';
   let regMode = 'invite';
   let googleCredential = null;   // kod kerak bo'lib qolsa, tokenni saqlab turamiz
+  let pending = null;            // taklif kodi kutilayotgan usul: 'google' | 'email' | provayder nomi
+  let demoMode = false;
+
+  const ICONS = {
+    yandex: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#FC3F1D"/><path fill="#fff" d="M13.6 19.2h2.2V4.8h-3.2c-3.2 0-4.8 1.6-4.8 4 0 1.9.9 3.1 2.6 4.2l-3 6.2h2.3l3.3-6.8-1.1-.7c-1.3-.9-1.9-1.6-1.9-3 0-1.4.9-2.3 2.6-2.3h1v12.8z"/></svg>',
+    microsoft: '<svg viewBox="0 0 24 24"><path fill="#F25022" d="M2 2h9.5v9.5H2z"/><path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z"/><path fill="#00A4EF" d="M2 12.5h9.5V22H2z"/><path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24"><path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
+  };
+  const NAMES = { yandex: 'Yandex', microsoft: 'Microsoft', facebook: 'Facebook' };
 
   const apply = () => {
     const reg = mode === 'register';
@@ -94,91 +114,136 @@
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   };
 
-  // ── Google bilan kirish ────────────────────────────────────────
+  const showCodebox = (html) => { $('#codebox').hidden = false; if (html) $('#codebox p').innerHTML = html; $('#gcode').focus(); };
+  const inviteCode = () => $('#gcode').value || $('#code').value;
+  const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(async (r) => ({ r, j: await r.json().catch(() => ({})) }));
+
+  // Login-parol formasi: tezkor usullar bor bo'lsa yashirin, havola bilan ochiladi
+  const tuckForm = () => { if (!$('#form').dataset.opened) $('#form').hidden = true; };
+  const openForm = () => { $('#form').dataset.opened = '1'; $('#form').hidden = false; $('#show-form').hidden = true; };
+  $('#show-form').onclick = () => { openForm(); $('#username').focus(); };
+
+  // ── Google ─────────────────────────────────────────────────────
   async function googleLogin(credential, code) {
     $('#msg').textContent = '';
-    const r = await fetch('/api/auth/google', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential, code }),
-    });
-    const j = await r.json().catch(() => ({}));
+    const { r, j } = await post('/api/auth/google', { credential, code });
     if (r.ok) { location.href = './'; return; }
-    if (j.needCode) {                       // yangi odam: taklif kodi so'raymiz
-      googleCredential = credential;
-      $('#codebox').hidden = false;
-      $('#gcode').focus();
+    if (j.needCode) {
+      googleCredential = credential; pending = 'google';
+      showCodebox();
       $('#msg').textContent = r.status === 428 ? '' : j.error;
       return;
     }
     $('#msg').textContent = j.error || `Xato ${r.status}`;
   }
 
-  let demoMode = false;
-  const startYandex = (code) => { location.href = demoMode ? './' : `/api/auth/yandex/start?code=${encodeURIComponent(code || '')}`; };
-  // Taklif kodi tugmasi: Google tokeni kutilayotgan bo'lsa Google, aks holda Yandex uchun
-  $('#gcode-go').onclick = () => (googleCredential ? googleLogin(googleCredential, $('#gcode').value) : startYandex($('#gcode').value));
-
-  function setupYandex(hasGoogle) {
-    $('#google').hidden = false;
-    $('#y-btn').hidden = false;
-    $('#y-btn').onclick = () => startYandex($('#gcode').value || $('#code').value);
-    if (!hasGoogle) tuckForm();
-  }
-
-  // Yandex'dan qaytganda (/login?yx=...) xabar ko'rsatish
-  function showYandexResult(why) {
-    const text = {
-      needcode: 'Birinchi marta kiryapsiz. Taklif kodini kiriting va Yandex tugmasini yana bosing.',
-      badcode: "Taklif kodi noto'g'ri yoki ishlatilgan. Kodni tekshirib, qayta urinib ko'ring.",
-      denied: 'Yandex kirishga ruxsat berilmadi.',
-      blocked: 'Hisob bloklangan.',
-      error: "Yandex bilan kirib bo'lmadi. Qaytadan urinib ko'ring.",
-    }[why];
-    if (!text) return;
-    if (why === 'needcode' || why === 'badcode') { $('#codebox').hidden = false; $('#codebox p').innerHTML = text; $('#gcode').focus(); }
-    else $('#msg').textContent = text;
-  }
-  $('#gcode').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#gcode-go').click(); } });
-
-  // Google tugmasi ishlayotgan bo'lsa login-parol formasi yashirin turadi (kerak bo'lsa havola bilan ochiladi)
-  const tuckForm = () => { if (!$('#form').dataset.opened) $('#form').hidden = true; };
-  $('#show-form').onclick = () => { $('#form').dataset.opened = '1'; $('#form').hidden = false; $('#show-form').hidden = true; $('#username').focus(); };
-
   function setupGoogle(clientId) {
-    $('#google').hidden = false;
-
-    // Namoyish (demo) sahifada haqiqiy Google yo'q - tugma nusxasi
-    if (clientId === 'demo') {
+    $('#social').hidden = false;
+    if (clientId === 'demo') {            // namoyish: haqiqiy Google yo'q, tugma nusxasi
       demoMode = true;
-      $('#g-btn').innerHTML = `<button type="button" class="g-fake" id="g-fake">
-        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      $('#g-btn').innerHTML = `<button type="button" class="sbtn" id="g-fake">
+        <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.700l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
         Google bilan davom etish</button>`;
       $('#g-fake').onclick = () => { location.href = './'; };
-      tuckForm();
       return;
     }
-
     const s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client';
     s.async = true;
     s.onload = () => {
       google.accounts.id.initialize({ client_id: clientId, callback: (resp) => googleLogin(resp.credential) });
       google.accounts.id.renderButton($('#g-btn'), { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 320 });
-      tuckForm();
     };
-    s.onerror = () => { $('#google').hidden = true; $('#form').hidden = false; };   // Google yetib bo'lmasa (bloklangan) oddiy kirish qoladi
+    s.onerror = () => { $('#g-btn').hidden = true; };   // Google yetib bo'lmasa (bloklangan) boshqa usullar qoladi
     document.head.appendChild(s);
   }
+
+  // ── OAuth provayderlar (Yandex, Microsoft, Facebook) ───────────
+  function setupProviders(list) {
+    if (!list?.length) return;
+    $('#social').hidden = false;
+    $('#oa-btns').innerHTML = list.filter((p) => NAMES[p]).map((p) =>
+      `<button type="button" class="sbtn" data-p="${p}">${ICONS[p]}${NAMES[p]} bilan davom etish</button>`).join('');
+    $('#oa-btns').onclick = (e) => {
+      const b = e.target.closest('[data-p]');
+      if (!b) return;
+      pending = b.dataset.p;
+      location.href = demoMode ? './' : `/api/auth/${b.dataset.p}/start?code=${encodeURIComponent(inviteCode())}`;
+    };
+  }
+
+  // Provayderdan qaytganda (/login?oa=...) xabar
+  function showOAuthResult(why) {
+    const text = {
+      needcode: 'Birinchi marta kiryapsiz. Taklif kodini kiriting va tugmani yana bosing.',
+      badcode: "Taklif kodi noto'g'ri yoki ishlatilgan. Kodni tekshirib, qayta urinib ko'ring.",
+      denied: 'Kirishga ruxsat berilmadi.',
+      blocked: 'Hisob bloklangan.',
+      error: "Bu usul bilan kirib bo'lmadi. Qaytadan urinib ko'ring.",
+    }[why];
+    if (!text) return;
+    if (why === 'needcode' || why === 'badcode') showCodebox(text);
+    else $('#msg').textContent = text;
+  }
+
+  // ── Pochta orqali kod ──────────────────────────────────────────
+  function setupEmail() {
+    $('#social').hidden = false;
+    $('#email-btn').hidden = false;
+    $('#email-btn').onclick = () => { $('#emailbox').hidden = !$('#emailbox').hidden; if (!$('#emailbox').hidden) $('#em').focus(); };
+  }
+  async function emailSend() {
+    $('#msg').textContent = '';
+    if (demoMode) { $('#em-step2').hidden = false; $('#em-hint').textContent = 'Namoyish: kod yuborilmaydi. Istalgan 6 raqamni kiriting.'; return; }
+    const btn = $('#em-send'); btn.disabled = true;
+    try {
+      const { r, j } = await post('/api/auth/email/start', { email: $('#em').value, code: inviteCode() });
+      if (r.ok) {
+        $('#em-step2').hidden = false;
+        $('#em-hint').textContent = `${$('#em').value.trim()} manziliga kod yuborildi (10 daqiqa amal qiladi). Xat kelmasa, «Spam» papkasini ham tekshiring.`;
+        $('#otp').focus();
+      } else if (j.needCode) { pending = 'email'; showCodebox(); $('#msg').textContent = r.status === 428 ? '' : j.error; }
+      else $('#msg').textContent = j.error || `Xato ${r.status}`;
+    } finally { btn.disabled = false; }
+  }
+  async function emailVerify() {
+    $('#msg').textContent = '';
+    if (demoMode) { location.href = './'; return; }
+    const btn = $('#em-verify'); btn.disabled = true;
+    try {
+      const { r, j } = await post('/api/auth/email/verify', { email: $('#em').value, otp: $('#otp').value, code: inviteCode() });
+      if (r.ok) { location.href = './'; return; }
+      if (/taklif/i.test(j.error || '')) showCodebox();
+      $('#msg').textContent = j.error || `Xato ${r.status}`;
+    } finally { btn.disabled = false; }
+  }
+  $('#em-send').onclick = emailSend;
+  $('#em-verify').onclick = emailVerify;
+  $('#otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') emailVerify(); });
+  $('#em').addEventListener('keydown', (e) => { if (e.key === 'Enter') emailSend(); });
+
+  // Taklif kodi tugmasi: kutilayotgan usulga qarab davom etadi
+  $('#gcode-go').onclick = () => {
+    if (pending === 'google' && googleCredential) return googleLogin(googleCredential, $('#gcode').value);
+    if (pending === 'email') return emailSend();
+    if (pending && NAMES[pending]) { location.href = `/api/auth/${pending}/start?code=${encodeURIComponent($('#gcode').value)}`; return; }
+    $('#msg').textContent = "Avval kirish usulini tanlang (Google, pochta...), keyin kodni kiriting.";
+  };
+  $('#gcode').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#gcode-go').click(); } });
 
   fetch('/api/config').then((r) => r.json()).then((c) => {
     regMode = c.registration;
     $('#tabs').hidden = false;
     if (regMode === 'open') $('#code').placeholder = '(ixtiyoriy)';
     if (c.googleClientId) setupGoogle(c.googleClientId);
-    if (c.yandex) setupYandex(!!c.googleClientId);
-    showYandexResult(new URLSearchParams(location.search).get('yx'));
-    // /login?kod=XXXXX-XXXXX havolasi bilan kelganda ro'yxatdan o'tish oynasi ochiladi
+    setupProviders(c.providers);
+    if (c.emailLogin) setupEmail();
+    if (!$('#social').hidden) tuckForm();
+    showOAuthResult(new URLSearchParams(location.search).get('oa'));
+    // /login?kod=XXXXX-XXXXX havolasi bilan kelganda kod maydonlari to'ldiriladi va ro'yxatdan o'tish oynasi ochiladi
     const kod = new URLSearchParams(location.search).get('kod');
-    if (kod) { $('#code').value = kod; $('#gcode').value = kod; mode = 'register'; $('#form').dataset.opened = '1'; $('#form').hidden = false; $('#show-form').hidden = true; }
+    if (kod) { $('#code').value = kod; $('#gcode').value = kod; mode = 'register'; openForm(); }
     apply();
   }).catch(() => {});
 
@@ -195,10 +260,7 @@
     try {
       const body = { username: $('#username').value.trim(), password: $('#password').value };
       if (mode === 'register') body.code = $('#code').value;
-      const r = await fetch(mode === 'register' ? '/api/register' : '/api/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const j = await r.json().catch(() => ({}));
+      const { r, j } = await post(mode === 'register' ? '/api/register' : '/api/login', body);
       if (!r.ok) throw new Error(j.error || `Xato ${r.status}`);
       location.href = './';
     } catch (err) {
