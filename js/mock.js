@@ -53,6 +53,15 @@
         favorites: main.filter((x) => x.favorite).length, archive: l.length - main.length, places: main.filter((x) => x.lat != null).length,
         trash: items.length - l.length, ...user() };
     }
+    if (path === '/api/plans') {
+      return { currency: 'UZS', yearlyMonths: 10, contact: '@dezo_admin', quota: 15 * GB, plans: [
+        { id: 'free', name: 'Bepul', gb: 15, monthly: 0, recommended: false },
+        { id: 'p100', name: 'Oddiy', gb: 100, monthly: 9900, recommended: false },
+        { id: 'p500', name: 'Plus', gb: 500, monthly: 29900, recommended: true },
+        { id: 'p2000', name: 'Pro', gb: 2000, monthly: 79000, google: 119880, recommended: false },
+        { id: 'p5000', name: 'Maksimum', gb: 5000, monthly: 149000, recommended: false },
+      ] };
+    }
     if (path === '/api/places') {
       const g = new Map();
       for (const x of live().filter((y) => !y.archived && y.lat != null)) {

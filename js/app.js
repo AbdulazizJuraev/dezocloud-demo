@@ -24,7 +24,7 @@ const state = {
 const main = $('#main');
 const TITLES = {
   photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', places: 'Joylar',
-  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha',
+  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar',
 };
 
 // Joy katagi (~10 km) nomi: koordinatalar
@@ -127,7 +127,7 @@ async function loadStats() {
     $('#meter-text').textContent = s.quota ? `Band: ${bytes(s.used)} (jami ${bytes(s.quota)})` : `Band: ${bytes(s.used)}`;
   } catch {}
 }
-$('#more-space').onclick = () => toast("Ko'proq joy kerak bo'lsa, administratorga murojaat qiling.");
+$('#more-space').onclick = () => navigate('#/plans');
 
 async function loadAlbums() {
   try {
@@ -160,6 +160,7 @@ async function reload() {
 
   if (state.view === 'albums' && !state.search) { renderAlbums(); return; }
   if (state.view === 'places' && !state.search) { await renderPlaces(token); return; }
+  if (state.view === 'plans') { await renderPlans(token); return; }
   main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
   try {
     if (state.view === 'trash') {
@@ -580,6 +581,70 @@ function renderAlbums() {
     </div>`;
   hydrateIcons(main);
 }
+
+// ── Tariflar ──────────────────────────────────────────────────────
+const fmtNum = (n) => Math.round(n).toLocaleString('ru-RU').replace(/ /g, ' ');
+const fmtGb = (gb) => (gb >= 1000 ? `${+(gb / 1000).toFixed(1)} TB` : `${gb} GB`);
+let plansData = null;
+let plansYearly = false;
+
+async function renderPlans(token) {
+  disconnectObserver();
+  syncNav();
+  if (!plansData) {
+    main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
+    try { plansData = await api('/api/plans'); } catch (e) { toast(e.message); return; }
+    if (token !== state.token) return;
+  }
+  drawPlans();
+}
+
+function drawPlans() {
+  const d = plansData;
+  const curGb = state.user?.quota ? Math.round(state.user.quota / 1024 ** 3) : null;
+  const price = (p) => (plansYearly ? (p.monthly * d.yearlyMonths) / 12 : p.monthly);
+  const save = Math.round((1 - d.yearlyMonths / 12) * 100);
+  main.innerHTML = `
+    <div class="plans-head"><h2>O'zingizga mos tarifni tanlang</h2>
+      <p>Hajm kerak bo'lsa tarifni oshiring. Istalgan vaqtda o'zgartirish mumkin.</p>
+      <div class="seg" id="plan-seg"><button data-y="0" class="${plansYearly ? '' : 'on'}">Oyiga</button><button data-y="1" class="${plansYearly ? 'on' : ''}">Yiliga</button></div>
+      ${plansYearly && save > 0 ? `<div class="plans-save">Yillik to'lovda ${save}% tejaysiz</div>` : '<div class="plans-save">&nbsp;</div>'}
+    </div>
+    <div class="plans">${d.plans.map((p) => {
+      const cur = curGb === p.gb;
+      const pr = price(p);
+      return `<div class="plan${p.recommended ? ' rec' : ''}${cur ? ' cur' : ''}">
+        ${p.recommended ? '<div class="plan-tag">Tavsiya etiladi</div>' : ''}
+        <h3>${esc(p.name)}</h3>
+        <div class="plan-gb">${fmtGb(p.gb)}</div>
+        <div class="plan-price">${p.monthly ? `<b>${fmtNum(pr)}</b> <span>${esc(d.currency)} / oyiga</span>` : '<b>Bepul</b>'}</div>
+        <div class="plan-sub">${p.monthly ? (plansYearly ? `Yiliga ${fmtNum(p.monthly * d.yearlyMonths)} ${esc(d.currency)}` : "Har oy to'lanadi") : 'Ro\'yxatdan o\'tganda beriladi'}</div>
+        ${p.google ? `<div class="plan-cmp">Google'da shu hajm: <s>${fmtNum(p.google)} ${esc(d.currency)}</s> / oyiga</div>` : '<div class="plan-cmp">&nbsp;</div>'}
+        <button class="btn ${p.recommended ? 'primary' : ''}" data-plan="${esc(p.id)}" ${cur || !p.monthly ? 'disabled' : ''}>${cur ? 'Joriy tarif' : (p.monthly ? 'Tanlash' : 'Bepul')}</button>
+        <ul><li>${fmtGb(p.gb)} surat va video uchun joy</li><li>Fayllar soni cheklanmagan</li><li>Albomlar va ulashish havolalari</li><li>Shifrlangan saqlash</li></ul>
+      </div>`;
+    }).join('')}</div>`;
+  hydrateIcons(main);
+}
+
+main.addEventListener('click', (e) => {
+  const seg = e.target.closest('#plan-seg button');
+  if (seg && plansData) { plansYearly = seg.dataset.y === '1'; drawPlans(); return; }
+  const pb = e.target.closest('button[data-plan]');
+  if (!pb || !plansData) return;
+  const p = plansData.plans.find((x) => x.id === pb.dataset.plan);
+  if (!p) return;
+  const total = plansYearly ? p.monthly * plansData.yearlyMonths : p.monthly;
+  const m = modal(`
+    <h2>«${esc(p.name)}» — ${fmtGb(p.gb)}</h2>
+    <div style="line-height:1.6">To'lov: <b>${fmtNum(total)} ${esc(plansData.currency)}</b> ${plansYearly ? 'yiliga' : 'oyiga'}.</div>
+    <div style="color:var(--muted);font-size:13px;line-height:1.55">Hozircha to'lov administrator orqali qabul qilinadi. To'lovdan keyin hajmingiz oshiriladi.
+      ${plansData.contact ? `<br><br>Bog'lanish: <b>${esc(plansData.contact)}</b><br>Murojaatda hisobingiz loginini yozing: <b>${esc(state.user.username)}</b>` : '<br><br>Administrator bilan bog\'laning.'}</div>
+    <div class="actions">${plansData.contact ? '<button class="btn" data-x="copy">Loginni nusxalash</button>' : ''}<button class="btn primary" data-x="ok">Yopish</button></div>`);
+  $('[data-x="ok"]', m).onclick = () => m.close();
+  const cp = $('[data-x="copy"]', m);
+  if (cp) cp.onclick = () => copyText(state.user.username).then(() => toast('Nusxalandi'));
+});
 
 // ── Joylar ro'yxati ───────────────────────────────────────────────
 async function renderPlaces(token) {
