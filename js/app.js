@@ -1,6 +1,6 @@
 // DezoCloud — asosiy dastur
 import {
-  $, $$, icon, hydrateIcons, esc, bytes, duration, dayKey, dayLabel, api, toast,
+  $, $$, icon, hydrateIcons, esc, bytes, duration, dayKey, dayLabel, monthKey, monthLabel, api, toast,
   modal, promptText, confirmBox, openMenu, copyText,
 } from './util.js';
 import { initUploader, enqueue, hasActive } from './uploader.js';
@@ -183,11 +183,19 @@ async function loadMore() {
 // ── Vaqt chizig'i ─────────────────────────────────────────────────
 let lastKey = null;
 let lastGroup = null;
+let lastMonth = null;
+let lastDays = null;
+let lastBlock = null;
 let observer = null;
 
 function pageHead() {
-  const t = state.search ? `Qidiruv: «${esc(state.search)}»` : (state.view === 'album' ? '' : TITLES[state.view]);
+  const t = state.search ? `Qidiruv: «${esc(state.search)}»` : (state.view === 'album' || state.view === 'photos' ? '' : TITLES[state.view]);
   let h = '';
+  let warn = '';
+  const q = state.user;
+  if (q?.quota && q.used / q.quota >= 0.9) {
+    warn = `<div class="storewarn">Joy tugayapti (band: ${Math.min(100, Math.round((q.used / q.quota) * 100))}%). To'lganda yangi surat yuklab bo'lmaydi — keraksiz fayllarni o'chiring yoki administratordan joy so'rang.</div>`;
+  }
   if (state.view === 'album') {
     const a = state.albums.find((x) => x.id === state.albumId);
     h = `<div class="page-head"><button class="icon-btn" data-act="back" aria-label="Orqaga">${icon('back')}</button>
@@ -200,7 +208,7 @@ function pageHead() {
   } else if (t) {
     h = `<div class="page-head"><h2>${t}</h2>${state.total ? `<span class="sub">${state.total} ta</span>` : ''}</div>`;
   }
-  return h;
+  return warn + h;
 }
 
 function emptyHtml() {
@@ -218,7 +226,7 @@ function emptyHtml() {
 
 function renderTimeline() {
   disconnectObserver();
-  lastKey = null; lastGroup = null;
+  lastKey = null; lastGroup = null; lastMonth = null; lastDays = null; lastBlock = null;
   syncNav();
   main.innerHTML = pageHead() + '<div id="tl"></div>';
   $('#tl').classList.toggle('selecting', state.selected.size > 0);
@@ -243,20 +251,42 @@ function appendItems(items) {
     const ts = m.taken_at || m.created_at || m.deleted_at;
     const key = state.view === 'trash' ? 'trash' : dayKey(ts);
     if (key !== lastKey) {
-      if (state.view !== 'trash') {
+      lastGroup = document.createElement('div');
+      lastGroup.className = 'group';
+      lastGroup.dataset.key = key;
+      if (state.view === 'trash') {
+        tl.appendChild(lastGroup);
+      } else {
+        // Oy sarlavhasi (kompyuterda katta yozuv) va kun bloki: qisqa kunlar bir qatorga yonma-yon tushadi
+        const mk = monthKey(ts);
+        if (mk !== lastMonth) {
+          const mh = document.createElement('h3');
+          mh.className = 'month';
+          mh.textContent = monthLabel(ts);
+          lastDays = document.createElement('div');
+          lastDays.className = 'days';
+          tl.append(mh, lastDays);
+          lastMonth = mk;
+        }
         const h = document.createElement('div');
         h.className = 'day';
         h.dataset.key = key;
         h.innerHTML = `<button class="daycheck" data-act="day" aria-label="Kunni tanlash">${icon('check')}</button><span>${esc(dayLabel(ts))}</span>`;
-        tl.appendChild(h);
+        lastBlock = document.createElement('div');
+        lastBlock.className = 'dayblock';
+        lastBlock.style.setProperty('--sar', '0');
+        lastBlock.style.setProperty('--n', '0');
+        lastBlock.append(h, lastGroup);
+        lastDays.appendChild(lastBlock);
       }
-      lastGroup = document.createElement('div');
-      lastGroup.className = 'group';
-      lastGroup.dataset.key = key;
-      tl.appendChild(lastGroup);
       lastKey = key;
     }
-    lastGroup.appendChild(tileEl(m));
+    const tile = tileEl(m);
+    lastGroup.appendChild(tile);
+    if (lastBlock && state.view !== 'trash') {   // blok kengligi = bir qatordagi surat kengliklari yig'indisi
+      lastBlock.style.setProperty('--sar', String((Number(lastBlock.style.getPropertyValue('--sar')) + Number(tile.style.getPropertyValue('--ar'))).toFixed(3)));
+      lastBlock.style.setProperty('--n', String(lastGroup.children.length));
+    }
   }
   const sent = $('#sentinel');
   if (sent && observer) { observer.unobserve(sent); observer.observe(sent); }

@@ -71,6 +71,15 @@ const DAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'j
 
 export const dayKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
 
+export const monthKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}`; };
+
+export function monthLabel(ts) {
+  const d = new Date(ts);
+  const name = MONTHS[d.getMonth()];
+  const title = name[0].toUpperCase() + name.slice(1);
+  return d.getFullYear() === new Date().getFullYear() ? title : `${title} ${d.getFullYear()}`;
+}
+
 export function dayLabel(ts) {
   const d = new Date(ts);
   const now = new Date();

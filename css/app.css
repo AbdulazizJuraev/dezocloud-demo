@@ -3,7 +3,7 @@
   --bg: #ffffff; --bg-2: #f1f3f4; --bg-3: #e3e6ea; --fg: #202124; --muted: #5f6368; --line: #dadce0;
   --accent: #1a73e8; --accent-bg: #e8f0fe; --accent-fg: #ffffff; --danger: #d93025; --ok: #188038;
   --shadow: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
-  --h: 220px;               /* surat qatori balandligi */
+  --h: 176px;               /* surat qatori balandligi */
   --head: 64px; --tabbar: 56px; --side: 256px;
   color-scheme: light;
 }
@@ -129,12 +129,20 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
 .day:hover .daycheck, .selecting .day .daycheck { opacity: 1; }
 .day .daycheck.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); opacity: 1; }
 .day .daycheck svg { width: 14px; height: 14px; fill: currentColor; }
-.group { display: flex; flex-wrap: wrap; gap: 4px; }
+.group { display: flex; flex-wrap: wrap; gap: 2px; }
 .group::after { content: ''; flex-grow: 1000000; }
+.month { margin: 0; padding: 28px 4px 4px; font-size: 22px; font-weight: 400; position: sticky; top: 0; z-index: 6; background: var(--bg); }
+.days { display: flex; flex-wrap: wrap; gap: 0 28px; align-items: flex-start; }
+/* Kun bloki: eni = bir qatordagi suratlar yig'indisi (qisqa kunlar yonma-yon tushadi) */
+.dayblock { flex: 0 0 auto; max-width: 100%; width: calc(var(--h) * var(--sar) + var(--n) * 2px + 8px); }
+.dayblock .day { position: static; padding: 14px 4px 6px; font-size: 13px; }
+.navlabel { padding: 14px 26px 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.storewarn { margin: 8px 4px 4px; padding: 12px 18px; border-radius: 24px; background: #b3261e; color: #fff; font-size: 13px; }
+.storewarn a { color: #fff; font-weight: 500; }
 
 .ph {
   position: relative; flex-grow: var(--ar); width: calc(var(--h) * var(--ar)); max-width: 100%;
-  background: var(--bg-3); border-radius: 4px; overflow: hidden; cursor: pointer; outline: none;
+  background: var(--bg-3); border-radius: 2px; overflow: hidden; cursor: pointer; outline: none;
 }
 .ph::before { content: ''; display: block; padding-bottom: calc(100% / var(--ar)); }
 .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
@@ -279,8 +287,10 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
   aside.side.open { transform: none; box-shadow: var(--shadow); }
   .scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.45); }
   main.main { padding: 0 6px calc(var(--tabbar) + 90px) 6px; }
-  .group { gap: 2px; }
-  .day { padding: 14px 4px 6px; }
+  .days { display: block; }
+  .dayblock { width: auto; }
+  .month { padding: 16px 4px 2px; font-size: 18px; }
+  .day, .dayblock .day { position: sticky; top: 38px; z-index: 5; background: var(--bg); padding: 10px 4px 6px; }
   .tabbar {
     display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
     height: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
