@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DezoCloud — Kirish</title>
 <meta name="robots" content="noindex">
-<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="icon" type="image/png" sizes="256x256" href="./favicon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="stylesheet" href="./css/app.css">
 <style>
   .social { display: grid; gap: 10px; }
@@ -117,6 +119,7 @@
     document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
   };
 
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const showCodebox = (html) => { $('#codebox').hidden = false; if (html) $('#codebox p').innerHTML = html; $('#gcode').focus(); };
   const inviteCode = () => $('#gcode').value || $('#code').value;
   const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -134,7 +137,7 @@
     if (r.ok) { location.href = './'; return; }
     if (j.needCode) {
       googleCredential = credential; pending = 'google';
-      showCodebox();
+      showCodebox(j.email ? `<b>${esc(j.email)}</b> bilan kirdingiz, bu pochta hali ro'yxatdan o'tmagan. Administrator bergan taklif kodini kiriting. Boshqa Google hisobi kerak bo'lsa, sahifani yangilab, tugmada shu hisobni tanlang:` : null);
       $('#msg').textContent = r.status === 428 ? '' : j.error;
       return;
     }
