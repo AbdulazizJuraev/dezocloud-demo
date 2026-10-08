@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DezoCloud ilovasiga qaytish</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  .wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; text-align: center; }
+  .box { max-width: 360px; display: grid; gap: 16px; justify-items: center; }
+  .box p { margin: 0; color: var(--muted); }
+  .btn { text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="box">
+  <img class="logo-img on-light" src="/logo-light.png" alt="DezoCloud"><img class="logo-img on-dark" src="/logo-dark.png" alt="" aria-hidden="true">
+  <h2 style="margin:0;font-weight:500">Kirdingiz</h2>
+  <p id="msg">Ilovaga qaytilmoqda...</p>
+  <a class="btn primary" id="open" href="#" hidden>Ilovani ochish</a>
+</div></div>
+<script>
+(async () => {
+  const msg = document.getElementById('msg'), open = document.getElementById('open');
+  try {
+    const r = await fetch('/api/app/code', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok || !j.code) throw new Error(j.error || 'xato');
+    const url = 'dezocloud://auth?code=' + encodeURIComponent(j.code);
+    open.href = url; open.hidden = false;
+    location.href = url;
+    setTimeout(() => { msg.textContent = "Ilova ochilmasa, pastdagi tugmani bosing."; }, 1500);
+  } catch (e) { msg.textContent = 'Xato: ' + e.message + '. Ilovaga qaytib, qayta urinib ko\'ring.'; }
+})();
+</script>
+</body>
+</html>

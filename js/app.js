@@ -109,13 +109,128 @@ function syncNav() {
 
 $$('#nav button, #tabbar button').forEach((b) => {
   b.onclick = () => {
-    if (b.dataset.view === 'search') return openMobileSearch();
+    if (b.dataset.view === 'search') return openSearchPage();
+    if (b.dataset.view === 'upload') return $('#file').click();
     closeMobileSearch(true);
     $('#search').value = ''; state.search = ''; $('#search-clear').hidden = true; navigate(`#/${b.dataset.view}`);
   };
 });
 
-// Telefonda qidiruv: pastdagi «Qidiruv» tugmasi tepa panelni qidiruv maydoniga aylantiradi
+// ── Qidiruv sahifasi (telefonda): alohida to'liq ekran, Google Photos kabi ─────
+const RECENT_KEY = 'dc-recent-search';
+const getRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; } };
+const addRecent = (q) => {
+  q = q.trim(); if (!q) return;
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify([q, ...getRecent().filter((x) => x !== q)].slice(0, 8))); } catch {}
+};
+let searchOpen = false;
+let spTimer;
+
+function openSearchPage() {
+  let el = $('#search-page');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'search-page';
+    el.className = 'search-page';
+    el.innerHTML = `
+      <div class="sp-top">
+        <button class="icon-btn" id="sp-back" aria-label="Orqaga">${icon('back')}</button>
+        <input id="sp-input" type="search" placeholder="Suratlar ichidan qidirish" autocomplete="off" enterkeyhint="search">
+        <button class="icon-btn" id="sp-clear" aria-label="Tozalash" hidden>${icon('close')}</button>
+      </div>
+      <div class="sp-body" id="sp-body"></div>`;
+    document.body.appendChild(el);
+    $('#sp-back').onclick = () => closeSearchPage();
+    $('#sp-clear').onclick = () => { $('#sp-input').value = ''; $('#sp-clear').hidden = true; spHome(); $('#sp-input').focus(); };
+    $('#sp-input').addEventListener('input', (e) => {
+      $('#sp-clear').hidden = !e.target.value;
+      clearTimeout(spTimer);
+      spTimer = setTimeout(() => spRun(e.target.value.trim()), 250);
+    });
+    $('#sp-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { addRecent(e.target.value); e.target.blur(); } });
+    $('#sp-body').addEventListener('click', (e) => {
+      const go = e.target.closest('[data-sgo]');
+      if (go) { closeSearchPage(true); navigate(go.dataset.sgo); return; }
+      const rc = e.target.closest('[data-recent]');
+      if (rc) { $('#sp-input').value = rc.dataset.recent; $('#sp-clear').hidden = false; spRun(rc.dataset.recent); return; }
+      if (e.target.closest('[data-clear-recent]')) { try { localStorage.removeItem(RECENT_KEY); } catch {} spHome(); return; }
+      const t = e.target.closest('.sp-tile');
+      if (t && spResults.length) {
+        addRecent($('#sp-input').value);
+        state.items = spResults.slice();
+        openViewer(state.items, Number(t.dataset.i), viewerCtx());
+      }
+    });
+  }
+  el.hidden = false;
+  searchOpen = true;
+  document.body.style.overflow = 'hidden';
+  history.pushState({ search: 1 }, '');
+  $('#sp-input').value = '';
+  $('#sp-clear').hidden = true;
+  spHome();
+  setTimeout(() => $('#sp-input').focus(), 50);
+}
+
+function closeSearchPage(silent) {
+  const el = $('#search-page');
+  if (!el || !searchOpen) return;
+  searchOpen = false;
+  el.hidden = true;
+  document.body.style.overflow = '';
+  if (silent) history.replaceState(null, '');        // boshqa bo'limga o'tilyapti: belgini olib tashlaymiz
+  else if (history.state?.search) history.back();    // orqaga: qidiruv yozuvini tarixdan olib tashlaymiz
+}
+
+// Android "orqaga" tugmasi va brauzer orqaga: qidiruv sahifasi yopiladi (kinoteatr ochiq bo'lsa tegmaymiz)
+window.addEventListener('popstate', () => {
+  if (searchOpen && !history.state?.search && !viewerOpen()) {
+    const el = $('#search-page');
+    searchOpen = false;
+    if (el) el.hidden = true;
+    document.body.style.overflow = '';
+  }
+});
+
+let spResults = [];
+
+function spHome() {
+  spResults = [];
+  const st = state.stats || {};
+  const row = (go, ic, label, n) => `<button class="sp-row" data-sgo="${go}"><span>${icon(ic)}</span><b>${label}</b>${n ? `<i>${n}</i>` : ''}</button>`;
+  const recent = getRecent();
+  $('#sp-body').innerHTML = `
+    <div class="sp-hint"><span>${icon('info')}</span><div>
+      <b>Nima qidiryapsiz?</b>
+      <small>Fayl nomini yozing, masalan «IMG_2026» yoki «video». Yoki quyidagi bo'limlardan tanlang.</small></div></div>
+    <div class="sp-list">
+      ${row('#/videos', 'video', 'Videolar', st.videos)}
+      ${row('#/cleanup/screens', 'recent', 'Skrinshotlar')}
+      ${row('#/favorites', 'star', 'Sevimlilar', st.favorites)}
+      ${row('#/places', 'place', 'Joylar', st.places)}
+      ${row('#/albums', 'album', 'Albomlar')}
+      ${row('#/recent', 'recent', "Yaqinda qo'shilganlar")}
+    </div>
+    ${recent.length ? `<div class="sp-sec"><span>Yaqinda qidirilganlar</span><button data-clear-recent>Tozalash</button></div>
+      <div class="sp-list">${recent.map((r) => `<button class="sp-row" data-recent="${esc(r)}"><span>${icon('search')}</span><b>${esc(r)}</b></button>`).join('')}</div>` : ''}`;
+}
+
+async function spRun(q) {
+  if (!q) { spHome(); return; }
+  try {
+    const d = await api(`/api/media?search=${encodeURIComponent(q)}&limit=90`);
+    if (!searchOpen || $('#sp-input').value.trim() !== q) return;
+    spResults = d.items;
+    $('#sp-body').innerHTML = d.items.length
+      ? `<div class="sp-count">${d.total} ta natija</div><div class="sp-grid">${d.items.map((m, i) => `<div class="sp-tile" data-i="${i}">
+          ${m.has_thumb ? `<img loading="lazy" alt="" src="./t/${m.id}">` : `<div class="fallback">${icon(m.kind === 'video' ? 'video' : 'photo')}</div>`}
+          ${m.kind === 'video' ? `<span class="sp-vb">${icon('play')}</span>` : ''}</div>`).join('')}</div>`
+      : `<div class="emptyview" style="padding-top:8vh">${icon('search')}<h3>Hech narsa topilmadi</h3>«${esc(q)}» bo'yicha natija yo'q.</div>`;
+    hydrateIcons($('#sp-body'));
+  } catch (e) { $('#sp-body').innerHTML = `<div class="emptyview"><h3>Qidirib bo'lmadi</h3>${esc(e.message)}</div>`; }
+}
+
+// (eski) tepa panelni qidiruv maydoniga aylantirish
 function openMobileSearch() {
   $('#top').classList.add('searching');
   $('#search-back').innerHTML = icon('back');
@@ -1022,11 +1137,13 @@ $('#gear-btn').onclick = (e) => {
     <hr>
     <button data-go="#/storage">${icon('cloud')}Xotirani boshqarish</button>
     <button data-go="#/plans">${icon('star')}Tariflar</button>
+    ${window.DezoApp ? `<button data-m="backup">${icon('upload')}Telefon zaxirasi</button>` : ''}
     ${state.user.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}`, 'wide');
   m.addEventListener('click', (ev) => {
     const th = ev.target.closest('[data-theme]');
     if (th) { setTheme(th.dataset.theme); $$('.theme-seg button', m).forEach((x) => x.classList.toggle('on', x === th)); ev.stopPropagation(); return; }
     if (ev.target.closest('[data-m="pw"]')) passwordDialog();
+    if (ev.target.closest('[data-m="backup"]')) window.DezoApp?.openBackupSettings();
     const g = ev.target.closest('[data-go]');
     if (g) navigate(g.dataset.go);
   }, true);
@@ -1065,6 +1182,7 @@ $('#avatar').onclick = (e) => {
       ${u.quota ? `<div class="bar"><i style="width:${Math.max(full, 1)}%"></i></div>` : ''}
       <div class="acc-btns"><button data-go="#/plans">Joy sotib olish</button><button data-go="#/storage">Joy bo'shatish</button></div>
     </div>
+    ${window.DezoApp ? `<button data-m="backup">${icon('upload')}Telefon zaxirasi</button>` : ''}
     ${u.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}
     ${u.role === 'admin' ? `<a href="./admin.html">${icon('shield')}Administrator paneli</a>` : ''}
     <button data-m="out">${icon('logout')}Chiqish</button>
@@ -1078,6 +1196,7 @@ $('#avatar').onclick = (e) => {
       await fetch('/api/logout', { method: 'POST' });
       location.href = './login.html';
     } else if (k === 'pw') passwordDialog();
+    else if (k === 'backup') window.DezoApp?.openBackupSettings();
   });
 };
 
