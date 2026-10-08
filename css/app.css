@@ -410,6 +410,7 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
 @media (max-width: 900px) { .plans-head h2 { font-size: 24px; } .plan.rec { transform: none; } }
 
 /* ── Tepa panel: hisob, sozlamalar, bo'limlar, yordam ─────────── */
+.menu { max-width: calc(100vw - 16px); }
 .menu.account { width: 340px; padding: 6px 0 10px; border-radius: 24px; }
 .menu.account button, .menu.account a { padding: 12px 22px; }
 .acc-head { display: flex; align-items: center; gap: 14px; padding: 16px 22px 12px; }

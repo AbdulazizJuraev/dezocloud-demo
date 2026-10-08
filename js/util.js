@@ -177,10 +177,10 @@ export function confirmBox({ title, text = '', ok = 'Ha', danger = false }) {
 }
 
 // ── Menyu (qalqib chiqadigan) ─────────────────────────────────────
-export function openMenu(anchor, html) {
+export function openMenu(anchor, html, extraClass = '') {
   document.querySelector('.menu')?.remove();
   const m = document.createElement('div');
-  m.className = 'menu';
+  m.className = ('menu ' + extraClass).trim();   // kenglik o'lchashdan OLDIN o'rnatiladi
   m.innerHTML = html;
   document.body.appendChild(m);
   hydrateIcons(m);

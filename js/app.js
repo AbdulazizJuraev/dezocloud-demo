@@ -989,8 +989,7 @@ $('#gear-btn').onclick = (e) => {
     <hr>
     <button data-go="#/storage">${icon('cloud')}Xotirani boshqarish</button>
     <button data-go="#/plans">${icon('star')}Tariflar</button>
-    ${state.user.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}`);
-  m.classList.add('wide');
+    ${state.user.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}`, 'wide');
   m.addEventListener('click', (ev) => {
     const th = ev.target.closest('[data-theme]');
     if (th) { setTheme(th.dataset.theme); $$('.theme-seg button', m).forEach((x) => x.classList.toggle('on', x === th)); ev.stopPropagation(); return; }
@@ -1016,8 +1015,7 @@ $('#apps-btn').onclick = (e) => {
       ${tile('#/storage', 'cloud', 'Xotira', '#1a73e8')}
       ${tile('#/plans', 'star', 'Tariflar', '#e040fb')}
       ${state.user.role === 'admin' ? `<a class="app-tile" href="/admin" style="--ac:#455a64"><span>${icon('shield')}</span><b>Admin</b></a>` : ''}
-    </div>`);
-  m.classList.add('apps');
+    </div>`, 'apps');
   m.addEventListener('click', (ev) => { const g = ev.target.closest('[data-go]'); if (g) navigate(g.dataset.go); });
 };
 
@@ -1037,8 +1035,7 @@ $('#avatar').onclick = (e) => {
     ${u.hasPassword === false ? '' : `<button data-m="pw">${icon('lock')}Parolni o'zgartirish</button>`}
     ${u.role === 'admin' ? `<a href="./admin.html">${icon('shield')}Administrator paneli</a>` : ''}
     <button data-m="out">${icon('logout')}Chiqish</button>
-    <div class="acc-foot"><a href="/privacy" target="_blank">Maxfiylik</a> · <a href="/terms" target="_blank">Shartlar</a></div>`);
-  m.classList.add('account');
+    <div class="acc-foot"><a href="/privacy" target="_blank">Maxfiylik</a> · <a href="/terms" target="_blank">Shartlar</a></div>`, 'account');
   m.addEventListener('click', async (ev) => {
     const g = ev.target.closest('[data-go]');
     if (g) { navigate(g.dataset.go); return; }
