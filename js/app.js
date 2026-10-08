@@ -27,6 +27,20 @@ const TITLES = {
   recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar", storage: 'Xotira',
 };
 
+// Xotira: keraksiz fayl toifalari
+const CLEAN_HINTS = {
+  large: "Eng katta fayllar eng tepada: ular xotirani ko'p egallaydi.",
+  dupes: "Bir xil nom va hajmdagi fayllarning keyingi nusxalari (eng eskisi tegilmaydi).",
+  screens: "Nomi «screenshot» yoki «ekran» bo'lgan suratlar.",
+  unsupported: "Bu formatdagi videolar brauzerda ijro etilmaydi: yuklab olib ko'rish mumkin.",
+};
+const CLEAN_TITLES = {
+  large: 'Katta hajmli surat va videolar',
+  dupes: 'Takroriy fayllar',
+  screens: 'Skrinshotlar',
+  unsupported: "Brauzerda ochilmaydigan videolar",
+};
+
 // Joy katagi (~10 km) nomi: koordinatalar
 const placeName = (lat, lon) => `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`;
 
@@ -57,6 +71,7 @@ function parseHash() {
   const [, a, b] = location.hash.replace(/^#/, '').split('/');
   if (a === 'album' && b) return { view: 'album', albumId: decodeURIComponent(b), place: null };
   if (a === 'place' && /^-?\d+,-?\d+$/.test(decodeURIComponent(b || ''))) return { view: 'place', albumId: null, place: decodeURIComponent(b) };
+  if (a === 'cleanup' && CLEAN_TITLES[b]) return { view: 'cleanup', albumId: null, place: null, clean: b };
   return { view: TITLES[a] ? a : 'photos', albumId: null, place: null };
 }
 
@@ -67,7 +82,8 @@ function navigate(h) {
 window.addEventListener('hashchange', () => { if (!viewerOpen()) route(); });
 
 function route() {
-  const { view, albumId, place } = parseHash();
+  const { view, albumId, place, clean } = parseHash();
+  state.clean = clean || null;
   state.view = view;
   state.albumId = albumId;
   state.place = place;
@@ -88,7 +104,7 @@ function syncNav() {
   const tab = ['photos', 'collections'].includes(state.view) ? state.view : (state.view === 'photos' ? 'photos' : 'collections');
   $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === tab));
   const album = state.view === 'album' ? state.albums.find((a) => a.id === state.albumId) : null;
-  document.title = `${album ? album.name : TITLES[state.view] || TITLES.places} — DezoCloud`;
+  document.title = `${album ? album.name : (state.view === 'cleanup' ? CLEAN_TITLES[state.clean] : TITLES[state.view]) || TITLES.places} — DezoCloud`;
 }
 
 $$('#nav button, #tabbar button').forEach((b) => {
@@ -166,6 +182,7 @@ function listParams(page) {
   if (state.view === 'place') p.set('place', state.place);
   if (state.view === 'recent') p.set('sort', 'added');
   if (state.view === 'archive') p.set('arch', '1');
+  if (state.view === 'cleanup') { p.set('clean', state.clean); p.set('sort', 'size'); }
   if (state.search) p.set('search', state.search);
   return p;
 }
@@ -251,6 +268,10 @@ function pageHead() {
     const [la, lo] = state.place.split(',').map((x) => Number(x) / 10);
     h = `<div class="page-head"><button class="icon-btn" data-act="back-places" aria-label="Orqaga">${icon('back')}</button>
       <h2>${esc(placeName(la, lo))}</h2><span class="sub">${state.total} ta</span></div>`;
+  } else if (state.view === 'cleanup') {
+    h = `<div class="page-head"><button class="icon-btn" data-act="back-storage" aria-label="Orqaga">${icon('back')}</button>
+      <h2>${esc(CLEAN_TITLES[state.clean])}</h2><span class="sub">${state.total} ta</span></div>
+      <div class="notice">${CLEAN_HINTS[state.clean]} Keraksizlarini belgilab, tepadagi savatcha tugmasi bilan o'chiring.</div>`;
   } else if (state.view === 'archive' && !state.search) {
     h = `<div class="page-head"><h2>Arxiv</h2>${state.total ? `<span class="sub">${state.total} ta</span>` : ''}</div>
       <div class="notice">Arxivdagi suratlar «Fotolar»da ko'rinmaydi, lekin o'chmaydi. Albomlarda va qidiruvda topiladi.</div>`;
@@ -276,6 +297,7 @@ function emptyHtml() {
     case 'archive': return e('archive', "Arxiv bo'sh", "Suratni tanlab, «Arxivga» tugmasini bosing — u «Fotolar»dan yashirinadi, lekin o'chmaydi.");
     case 'recent': return e('recent', "Hali hech narsa yo'q", "Yangi yuklangan fayllar shu yerda birinchi bo'lib ko'rinadi.", up);
     case 'place': return e('place', "Bu joyda surat yo'q", '');
+    case 'cleanup': return e('check', "Bu toifada fayl yo'q", "Ajoyib, bu yerda tozalaydigan hech narsa topilmadi.");
     default: return e('photo', "Hali surat yo'q", "Surat va videolaringizni yuklang — ular shu yerda sana bo'yicha tartiblanadi.", up);
   }
 }
@@ -305,12 +327,13 @@ function appendItems(items) {
   if (!tl) return;
   for (const m of items) {
     const ts = state.view === 'recent' ? m.created_at : (m.taken_at || m.created_at || m.deleted_at);
-    const key = state.view === 'trash' ? 'trash' : dayKey(ts);
+    const flat = state.view === 'trash' || state.view === 'cleanup';
+    const key = flat ? 'flat' : dayKey(ts);
     if (key !== lastKey) {
       lastGroup = document.createElement('div');
       lastGroup.className = 'group';
       lastGroup.dataset.key = key;
-      if (state.view === 'trash') {
+      if (flat) {
         tl.appendChild(lastGroup);
       } else {
         // Oy sarlavhasi (kompyuterda katta yozuv) va kun bloki: qisqa kunlar bir qatorga yonma-yon tushadi
@@ -339,7 +362,7 @@ function appendItems(items) {
     }
     const tile = tileEl(m);
     lastGroup.appendChild(tile);
-    if (lastBlock && state.view !== 'trash') {   // blok kengligi = bir qatordagi surat kengliklari yig'indisi
+    if (lastBlock && !flat) {   // blok kengligi = bir qatordagi surat kengliklari yig'indisi
       lastBlock.style.setProperty('--sar', String((Number(lastBlock.style.getPropertyValue('--sar')) + Number(tile.style.getPropertyValue('--ar'))).toFixed(3)));
       lastBlock.style.setProperty('--n', String(lastGroup.children.length));
     }
@@ -626,27 +649,33 @@ async function renderStorage(token) {
 function drawStorage() {
   const d = storageData;
   const free = d.quota ? Math.max(0, d.quota - d.used) : null;
-  const seg = (b, c) => (d.quota && b ? `<i style="width:${Math.min(100, (b / d.quota) * 100)}%;background:${c}"></i>` : '');
-  const dot = (c, label, x) => `<div class="lg"><i style="background:${c}"></i><span>${label}</span><b>${bytes(x.bytes)}</b><em>${x.n} ta</em></div>`;
   const pct = d.quota ? Math.round((d.used / d.quota) * 100) : 0;
+  const seg = (x, c) => (d.quota && x ? `<i style="width:${Math.min(100, (x / d.quota) * 100)}%;background:${c}"></i>` : '');
+  const lg = (c, label, x) => `<div class="lg"><i style="background:${c}"></i><span>${label} (${bytes(x.bytes)})</span></div>`;
+  const cl = d.cleanup || {};
+  const item = (go, ic, label, x, sub) => `<button class="st-item" data-go="${go}"><span class="st-ic">${icon(ic)}</span>
+    <div><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</div><em>${x && x.n ? bytes(x.bytes) : '~0 MB'}</em></button>`;
   main.innerHTML = `<div class="storage">
     <h2 class="st-title">${free != null ? `Bo'sh: ${bytes(free)}` : 'Xotira'}</h2>
-    <p class="st-sub">${d.quota ? `Band: ${bytes(d.used)} / ${bytes(d.quota)} (${pct}%)` : `Band: ${bytes(d.used)} (cheklanmagan)`}${pct >= 90 ? " — joy tez orada tugaydi, yangi fayl yuklab bo'lmaydi." : ''}</p>
-    ${d.quota ? `<div class="st-bar ${pct >= 90 ? 'warn' : ''}">${seg(d.images.bytes, '#4285f4')}${seg(d.videos.bytes, '#ea4335')}${seg(d.trash.bytes, '#fbbc04')}</div>` : ''}
-    <div class="st-legend">${dot('#4285f4', 'Suratlar', d.images)}${dot('#ea4335', 'Videolar', d.videos)}${dot('#fbbc04', 'Savatcha', d.trash)}</div>
-    <div class="st-banner"><div><b>Xotirangiz kam bo'lyaptimi?</b><span>Kengroq tarifga o'ting: 500 GB dan 5 TB gacha, arzon narxlarda.</span></div><button class="btn primary" data-go="#/plans">Tariflarni ko'rish</button></div>
-    <h3 class="st-h">Keraksiz fayllarni o'chiring</h3>
-    <div class="st-cards">
-      <button class="st-card" data-go="#/trash"><span>${icon('delete')}</span><div><b>Savatcha</b><small>${d.trash.n} ta fayl</small></div><em>${bytes(d.trash.bytes)}</em></button>
-      <button class="st-card" data-go="#/archive"><span>${icon('archive')}</span><div><b>Arxiv</b><small>${d.archive.n} ta fayl</small></div><em>${bytes(d.archive.bytes)}</em></button>
+    ${pct >= 90 ? `<p class="st-warn">Tez orada yangi surat va videolarni saqlab bo'lmaydi. Keraksiz fayllarni o'chiring yoki kengroq tarifga o'ting.</p>` : '<p class="st-sub">Xotirangiz yetarli. Joyni tejash uchun quyidagi tavsiyalardan foydalaning.</p>'}
+    ${d.quota ? `<div class="st-bar ${pct >= 90 ? 'warn' : ''}">${seg(d.images.bytes, '#ea4335')}${seg(d.videos.bytes, '#f28b82')}${seg(d.trash.bytes, '#fbbc04')}</div>` : ''}
+    <div class="st-legend-row">
+      <div class="st-legend">${lg('#ea4335', 'Suratlar', d.images)}${lg('#f28b82', 'Videolar', d.videos)}${lg('#fbbc04', 'Savatcha', d.trash)}</div>
+      <div class="st-used">${d.quota ? `Band: ${bytes(d.used)} / ${bytes(d.quota)}` : `Band: ${bytes(d.used)}`}</div>
     </div>
-    <h3 class="st-h">Eng katta fayllar</h3>
-    ${d.largest.length ? `<div class="st-list">${d.largest.map((m, i) => `<div class="st-row" data-i="${i}">
-      <div class="st-th">${m.has_thumb ? `<img loading="lazy" alt="" src="./t/${m.id}">` : icon(m.kind === 'video' ? 'video' : 'photo')}</div>
-      <div class="st-nm"><b>${esc(m.name)}</b><small>${m.kind === 'video' ? 'Video' : 'Surat'}${m.duration ? ' · ' + duration(m.duration) : ''}</small></div>
-      <div class="st-sz">${bytes(m.size)}</div>
-      <button class="icon-btn" data-del="${esc(m.id)}" aria-label="Savatchaga" title="Savatchaga">${icon('delete')}</button>
-    </div>`).join('')}</div>` : '<div class="notice">Hali fayl yo\'q.</div>'}
+    <div class="st-banner"><div><b>Ko'proq joy — ko'proq xotira</b><span>Kengroq tarifga o'ting: 500 GB dan 5 TB gacha, arzon narxlarda.</span></div><button class="btn sm st-link" data-go="#/plans">Tariflarni ko'rish</button></div>
+    <h3 class="st-h">Keraksiz fayllarni o'chiring</h3>
+    <div class="st-items">
+      ${item('#/cleanup/large', 'photo', 'Katta hajmli surat va videolar', cl.large, cl.large?.n ? `${cl.large.n} ta fayl` : '')}
+      ${item('#/cleanup/dupes', 'album', 'Takroriy fayllar', cl.dupes, cl.dupes?.n ? `${cl.dupes.n} ta nusxa` : '')}
+      ${item('#/cleanup/screens', 'recent', 'Skrinshotlar', cl.screens, cl.screens?.n ? `${cl.screens.n} ta fayl` : '')}
+      ${item('#/cleanup/unsupported', 'video', "Brauzerda ochilmaydigan videolar", cl.unsupported, cl.unsupported?.n ? `${cl.unsupported.n} ta fayl` : '')}
+    </div>
+    <h3 class="st-h">Boshqa takliflar</h3>
+    <div class="st-items">
+      ${item('#/trash', 'delete', "Savatchani bo'shating", d.trash, d.trash.n ? `${d.trash.n} ta fayl savatchada. Ular hajmingizdan hisoblanadi.` : '')}
+      ${item('#/archive', 'archive', 'Arxivni ko\'rib chiqing', d.archive, d.archive.n ? `${d.archive.n} ta fayl` : '')}
+    </div>
   </div>`;
   hydrateIcons(main);
 }
@@ -809,6 +838,7 @@ async function handleAct(act, e) {
     } else if (act === 'upload') $('#file').click();
     else if (act === 'back') navigate('#/albums');
     else if (act === 'back-places') navigate('#/places');
+    else if (act === 'back-storage') navigate('#/storage');
     else if (act === 'sw-dismiss') { try { sessionStorage.setItem('dc-sw', '1'); } catch {} e.target.closest('.storewarn')?.remove(); }
     else if (act === 'sw-plans') navigate('#/plans');
     else if (act === 'day') {

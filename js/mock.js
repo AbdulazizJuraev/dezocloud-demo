@@ -14,7 +14,7 @@
     const id = `${video ? 'v' : 'p'}${String(i + 1).padStart(2, '0')}.svg`;
     const ts = now - AGES[i % AGES.length] * DAY - ((i * 2749) % 80000) * 1000;
     items.push({
-      id, name: video ? `VID_${20260000 + i}.mp4` : `IMG_${20260000 + i}.jpg`, mime: video ? 'video/mp4' : 'image/jpeg',
+      id, name: video ? (i === 24 ? `VID_${20260000 + i}.mkv` : `VID_${20260000 + i}.mp4`) : (i % 12 === 5 ? `Screenshot_${20260000 + i}.png` : `IMG_${20260000 + i}.jpg`), mime: video ? 'video/mp4' : 'image/jpeg',
       kind: video ? 'video' : 'image', size: Math.round((video ? 38 : 3.4) * 1024 * 1024 * (0.6 + (i % 7) / 8)),
       width: aw >= ah ? 1200 : Math.round(1200 * aw / ah), height: aw >= ah ? Math.round(1200 * ah / aw) : 1200,
       duration: video ? 8 + (i * 13) % 140 : null, favorite: i % 9 === 0 ? 1 : 0,
@@ -61,7 +61,8 @@
       return { used: used(), quota: 15 * GB,
         images: { bytes: sum(imgs), n: imgs.length }, videos: { bytes: sum(vids), n: vids.length },
         trash: { bytes: sum(tr), n: tr.length }, archive: { bytes: sum(ar), n: ar.length },
-        largest: l.slice().sort((x, y) => y.size - x.size).slice(0, 30).map(strip) };
+        largest: l.slice().sort((x, y) => y.size - x.size).slice(0, 30).map(strip),
+        cleanup: Object.fromEntries([['large', (x) => x.size >= 30 * 1024 * 1024], ['screens', (x) => /screenshot|screen|ekran/i.test(x.name)], ['unsupported', (x) => /.(mkv|avi|wmv|mts|m2ts|3gp|mpg|mpeg)$/i.test(x.name)], ['dupes', () => false]].map(([k, f]) => { const a = l.filter(f); return [k, { n: a.length, bytes: sum(a) }]; })) };
     }
     if (path === '/api/plans') {
       return { currency: 'UZS', yearlyMonths: 10, contact: '@dezo_admin', quota: 15 * GB, plans: [
@@ -89,11 +90,14 @@
       if (q.get('kind')) l = l.filter((x) => x.kind === q.get('kind'));
       if (q.get('fav') === '1') l = l.filter((x) => x.favorite);
       if (q.get('album')) { const a = albumOf(q.get('album')); l = l.filter((x) => a.ids.includes(x.id)); }
+      const CL = { large: (x) => x.size >= 30 * 1024 * 1024, screens: (x) => /screenshot|screen|ekran/i.test(x.name), unsupported: (x) => /.(mkv|avi|wmv|mts|m2ts|3gp|mpg|mpeg)$/i.test(x.name), dupes: () => false };
+      if (q.get('clean') && CL[q.get('clean')]) l = l.filter(CL[q.get('clean')]);
       if (q.get('place')) { const [la, lo] = q.get('place').split(',').map(Number); l = l.filter((x) => x.lat != null && cell(x.lat) === la && cell(x.lon) === lo); }
       if (q.get('search')) l = l.filter((x) => x.name.toLowerCase().includes(q.get('search').toLowerCase()));
       // Arxivdagilar faqat Arxivda (albom va qidiruvda ko'rinadi)
       if (q.get('arch') === '1') l = l.filter((x) => x.archived);
-      else if (!q.get('album') && !q.get('search')) l = l.filter((x) => !x.archived);
+      else if (!q.get('album') && !q.get('search') && !q.get('clean')) l = l.filter((x) => !x.archived);
+      if (q.get('sort') === 'size') l = l.slice().sort((a, b) => b.size - a.size);
       if (q.get('sort') === 'added') l = l.slice().sort((a, b) => b.created_at - a.created_at);
       const limit = Math.min(Number(q.get('limit')) || 120, 300), page = Math.max(Number(q.get('page')) || 1, 1);
       return { items: l.slice((page - 1) * limit, page * limit).map(strip), total: l.length, page, pages: Math.ceil(l.length / limit) || 1 };
