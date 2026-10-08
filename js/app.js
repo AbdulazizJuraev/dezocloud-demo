@@ -53,7 +53,10 @@ $('#menu-btn').innerHTML = icon('menu');
     const me = await fetch('/api/me').then((r) => r.json());
     if (!me.loggedIn) { location.href = './login.html'; return; }
     state.user = me.user;
-  } catch { location.href = './login.html'; return; }
+  } catch {
+    if (!navigator.onLine) { state.user = { username: '?', quota: 0, used: 0 }; }   // offlayn: kirish sahifasiga otmaymiz
+    else { location.href = './login.html'; return; }
+  }
 
   $('#avatar').textContent = state.user.username[0];
   api('/api/limits').then((l) => { state.maxFileSize = l.maxFileSize; }).catch(() => {});
@@ -65,6 +68,44 @@ $('#menu-btn').innerHTML = icon('menu');
   await Promise.all([loadStats(), loadAlbums()]);
   route();
 })();
+
+// ── Offlayn rejim ─────────────────────────────────────────────────
+// Xizmat ishchisi (sw.js) ilova qobig'i, ro'yxatlar va eskizlarni saqlaydi; internet bo'lmasa shulardan ko'rsatadi.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { Promise.resolve().catch(() => {}); });
+}
+const syncOffline = () => document.body.classList.toggle('offline', !navigator.onLine);
+window.addEventListener('online', () => { syncOffline(); toast('Internet qaytdi'); reload(); loadStats(); });
+window.addEventListener('offline', () => { syncOffline(); toast("Internet yo'q: oxirgi saqlangan ma'lumotlar ko'rsatiladi"); });
+syncOffline();
+try { navigator.storage?.persist?.(); } catch {}   // brauzer saqlangan fayllarni o'zi o'chirib yubormasin
+
+const OFFLINE_CACHE = 'dc-offline';
+const OFFLINE_MAX = 300 * 1024 * 1024;   // bitta fayl: 300 MB gacha (xotirada Range uchun ishlatiladi)
+
+/** Tanlangan fayllarni offlayn saqlaydi: internetsiz ham to'liq ochiladi. */
+async function saveOffline(items) {
+  if (!('caches' in window)) { toast("Bu brauzer offlayn saqlashni qo'llamaydi"); return; }
+  if (!navigator.onLine) { toast('Offlayn saqlash uchun internet kerak'); return; }
+  const cache = await caches.open(OFFLINE_CACHE);
+  let done = 0, skipped = 0;
+  for (const m of items) {
+    if (m.size > OFFLINE_MAX) { skipped++; continue; }
+    try {
+      toast(`Offlayn saqlanmoqda: ${done + 1} / ${items.length}…`, 60000);
+      const res = await fetch(`/f/${m.id}`);
+      if (!res.ok) throw new Error('xato');
+      await cache.put(`/f/${m.id}`, res);
+      done++;
+    } catch { skipped++; }
+  }
+  const extra = skipped ? `, ${skipped} tasi o'tkazib yuborildi (katta yoki xato)` : '';
+  toast(done ? `${done} ta fayl offlayn saqlandi${extra}` : "Saqlab bo'lmadi (fayl 300 MB dan katta bo'lishi mumkin)", 5000);
+}
+
+async function clearOfflineData() {
+  try { for (const k of await caches.keys()) if (k.startsWith('dc-api') || k.startsWith('dc-thumbs') || k === OFFLINE_CACHE) await caches.delete(k); } catch {}
+}
 
 // ── Yo'naltirish (hash) ───────────────────────────────────────────
 function parseHash() {
@@ -543,7 +584,7 @@ function updateSelUI() {
   bar.innerHTML = `${btn('clear', 'close', 'Bekor qilish')}<span class="cnt">${n} ta tanlandi</span>`
     + (trash
       ? btn('restore', 'restore', 'Tiklash') + btn('purge', 'delete', "Butunlay o'chirish")
-      : btn('fav', 'star', 'Sevimlilarga') + btn('album', 'album', "Albomga qo'shish") + btn('download', 'download', 'Yuklab olish')
+      : btn('fav', 'star', 'Sevimlilarga') + btn('album', 'album', "Albomga qo'shish") + btn('download', 'download', 'Yuklab olish') + btn('offline', 'offline', 'Offlayn saqlash')
         + (state.view === 'archive' ? btn('unarchive', 'unarchive', 'Arxivdan chiqarish') : btn('archive', 'archive', 'Arxivga'))
         + (state.view === 'album' ? btn('unalbum', 'remove', 'Albomdan olib tashlash') : '') + btn('trash', 'delete', 'Savatchaga'));
   syncDayChecks();
@@ -631,6 +672,7 @@ $('#selbar').addEventListener('click', async (e) => {
     } else if (a === 'album') { await pickAlbum(ids); }
     else if (a === 'unalbum') { await bulk('album-remove', ids, { album: state.albumId }); removeLocal(ids); toast('Albomdan olib tashlandi'); loadAlbums(); }
     else if (a === 'download') { downloadMany(items); }
+    else if (a === 'offline') { await saveOffline(items); clearSelection(); }
   } catch (err) { toast(err.message); }
 });
 
@@ -1245,6 +1287,7 @@ $('#avatar').onclick = (e) => {
     if (k === 'out') {
       if (hasActive() && !(await confirmBox({ title: 'Chiqishni xohlaysizmi?', text: "Yuklash hali tugamagan, chiqsangiz to'xtaydi.", ok: 'Chiqish' }))) return;
       await fetch('/api/logout', { method: 'POST' });
+      await clearOfflineData();
       location.href = './login.html';
     } else if (k === 'pw') passwordDialog();
     else if (k === 'backup') window.DezoApp?.openBackupSettings();

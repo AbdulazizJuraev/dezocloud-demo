@@ -8,6 +8,12 @@
 <link rel="icon" type="image/png" sizes="256x256" href="./favicon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DezoCloud">
 <link rel="stylesheet" href="./css/app.css">
 <script>try{var t=localStorage.getItem('dc-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
 <style>
@@ -95,6 +101,7 @@
 <script src="./js/mock.js"></script>
 <script>
 (() => {
+  try { caches.keys().then((ks) => ks.filter((k) => k.startsWith('dc-api') || k.startsWith('dc-thumbs') || k === 'dc-offline').forEach((k) => caches.delete(k))); } catch (e) {}
   const $ = (s) => document.querySelector(s);
   let mode = 'login';
   let regMode = 'invite';

@@ -551,3 +551,8 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
   .cr-row { justify-content: center; flex-wrap: wrap; overflow: visible; }
   .cr-card { width: 270px; height: 360px; }
 }
+
+/* ── Offlayn belgisi ──────────────────────────────────────────── */
+#offbar { display: none; position: fixed; top: env(safe-area-inset-top, 0px); left: 50%; transform: translateX(-50%); z-index: 45;
+  background: #5f6368; color: #fff; font-size: 12px; padding: 3px 14px; border-radius: 0 0 12px 12px; max-width: 94vw; text-align: center; }
+.offline #offbar { display: block; }

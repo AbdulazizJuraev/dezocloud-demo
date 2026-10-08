@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DezoCloud — Internet yo'q</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fff; --fg: #202124; --muted: #5f6368; --acc: #1a73e8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #202124; --fg: #e8eaed; --muted: #9aa0a6; --acc: #8ab4f8; } }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+  .box { max-width: 340px; display: grid; gap: 14px; justify-items: center; }
+  .ic { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--acc) 16%, transparent); color: var(--acc); }
+  .ic svg { width: 44px; height: 44px; fill: currentColor; }
+  h1 { margin: 0; font-size: 24px; font-weight: 500; }
+  p { margin: 0; color: var(--muted); }
+  button { border: 0; border-radius: 26px; height: 50px; padding: 0 28px; font-size: 16px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #1a73e8, #7c4dff); width: 100%; }
+  button.alt { background: transparent; color: var(--acc); box-shadow: inset 0 0 0 2px var(--acc); }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="ic"><svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.15 0 10.77 0 14c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z"/></svg></div>
+  <h1>Internet yo'q</h1>
+  <p>Ilova hozir bulutga ulana olmayapti. Ilgari ochgan suratlaringiz ko'rinishi mumkin. Telefon zaxirasi esa internet paydo bo'lishi bilan o'zi davom etadi.</p>
+  <button id="retry">Qayta urinish</button>
+  <button id="backup" class="alt" hidden>Telefon zaxirasi</button>
+</div>
+<script>
+  document.getElementById('retry').onclick = () => { location.href = 'https://dezocloud.uz/'; };
+  if (window.DezoApp) {
+    const b = document.getElementById('backup');
+    b.hidden = false;
+    b.onclick = () => window.DezoApp.openBackupSettings();
+  }
+  window.addEventListener('online', () => { location.href = 'https://dezocloud.uz/'; });
+</script>
+</body>
+</html>

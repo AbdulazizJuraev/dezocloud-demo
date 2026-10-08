@@ -169,6 +169,8 @@ function stableUploadId(file) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Internet yo'q bo'lsa, qaytguncha kutadi (yuklash to'xtab turadi, internet kelgach o'zi davom etadi). */
+const whenOnline = () => (navigator.onLine ? Promise.resolve() : new Promise((r) => window.addEventListener('online', r, { once: true })));
 class Fatal extends Error {}
 
 async function readJson(r) { return r.json().catch(() => ({})); }
@@ -184,6 +186,7 @@ async function upload(it) {
 
   for (let round = 0; round < 2; round++) {
     // Server qancha qabul qilganini so'raymiz (uzilgan yuklashni davom ettirish)
+    if (!navigator.onLine) { setRow(it, { text: 'Internet kutilmoqda...' }); await whenOnline(); }
     let sent = 0;
     for (let a = 1; a <= 5; a++) {
       try {
@@ -198,6 +201,7 @@ async function upload(it) {
     const t0 = performance.now(); const s0 = sent;
     while (sent < file.size) {
       if (it.cancelled) throw new Fatal('Bekor qilindi');
+      if (!navigator.onLine) { setRow(it, { text: 'Internet kutilmoqda...' }); await whenOnline(); }
       const end = Math.min(sent + CHUNK, file.size);
       const chunk = file.slice(sent, end);
       let ok = false;

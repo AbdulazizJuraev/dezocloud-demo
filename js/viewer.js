@@ -102,6 +102,15 @@ function show() {
   };
   full.onerror = () => {
     if (token !== st.token) return;
+    if (!navigator.onLine) {   // internet yo'q: eskiz ko'rinib turaveradi
+      spin.remove();
+      const note = document.createElement('div');
+      note.className = 'vmsg';
+      note.style.cssText = 'position:absolute;bottom:24px;left:0;right:0;padding:8px 16px;font-size:13px';
+      note.textContent = "Internet yo'q: asl nusxa ochilmadi. «Offlayn saqlash» bilan saqlangan fayllar internetsiz ham ochiladi.";
+      stage.appendChild(note);
+      return;
+    }
     stage.innerHTML = `<div class="vmsg">Bu format (${esc(m.mime)}) brauzerda ko'rsatilmaydi.<br>Yuklab olib oching.</div>`;
   };
   full.src = `./f/${m.id}`;
