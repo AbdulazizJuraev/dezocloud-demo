@@ -149,6 +149,9 @@
     $('#msg').textContent = j.error || `Xato ${r.status}`;
   }
 
+  // Ilova (Android) hisob tanlangandan keyin tokenni shu yerga uzatadi
+  window.onNativeGoogle = (token) => googleLogin(token);
+
   function setupGoogle(clientId) {
     $('#social').hidden = false;
     if (IN_APP) {   // Google WebView'da ishlamaydi: tizim brauzerida kirib, ilovaga qaytamiz
