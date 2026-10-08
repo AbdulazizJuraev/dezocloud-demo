@@ -114,9 +114,10 @@ async function loadStats() {
     const pct = s.quota ? Math.min(100, (s.used / s.quota) * 100) : 0;
     $('#meter-fill').style.width = `${s.quota ? Math.max(pct, 1) : 0}%`;
     meter.classList.toggle('full', pct >= 90);
-    $('#meter-text').textContent = s.quota ? `${bytes(s.used)} / ${bytes(s.quota)} ishlatilgan` : `${bytes(s.used)} ishlatilgan`;
+    $('#meter-text').textContent = s.quota ? `Band: ${bytes(s.used)} (jami ${bytes(s.quota)})` : `Band: ${bytes(s.used)}`;
   } catch {}
 }
+$('#more-space').onclick = () => toast("Ko'proq joy kerak bo'lsa, administratorga murojaat qiling.");
 
 async function loadAlbums() {
   try {

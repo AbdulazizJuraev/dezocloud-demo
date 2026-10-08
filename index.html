@@ -26,6 +26,7 @@
   </header>
 
   <aside class="side" id="side">
+    <div class="side-brand"><img class="logo-img" src="./logo.svg" alt="DezoCloud" style="height:26px"></div>
     <nav class="nav" id="nav">
       <button data-view="photos"><span data-icon="photo"></span>Fotolar<span class="count" id="c-photos"></span></button>
       <div class="navlabel">To'plamlar</div>
@@ -36,8 +37,10 @@
       <button data-view="trash"><span data-icon="delete"></span>Savatcha<span class="count" id="c-trash"></span></button>
     </nav>
     <div class="meter" id="meter" hidden>
+      <div class="mtitle"><span data-icon="cloud"></span>Xotira</div>
       <div class="bar"><i id="meter-fill"></i></div>
       <div id="meter-text"></div>
+      <button class="btn sm" id="more-space" type="button">Ko'proq joy so'rash</button>
     </div>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
