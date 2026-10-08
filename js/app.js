@@ -662,6 +662,16 @@ async function renderPlans(token) {
   drawPlans();
 }
 
+// Har bir tarifga o'z rangi (Google logotipi ranglari): [asosiy, ikkinchi]
+const PLAN_COLORS = {
+  free: ['#34a853', '#7fd69a'],
+  p100: ['#1a73e8', '#5fb0ff'],
+  p500: ['#7c4dff', '#e040fb'],
+  p2000: ['#f9ab00', '#ff7043'],
+  p5000: ['#ea4335', '#ff6f91'],
+};
+const PLAN_FALLBACK = [['#1a73e8', '#5fb0ff'], ['#7c4dff', '#e040fb'], ['#f9ab00', '#ff7043'], ['#ea4335', '#ff6f91'], ['#34a853', '#7fd69a']];
+
 function drawPlans() {
   const d = plansData;
   const curGb = state.user?.quota ? Math.round(state.user.quota / 1024 ** 3) : null;
@@ -671,20 +681,26 @@ function drawPlans() {
     <div class="plans-head"><h2>O'zingizga mos tarifni tanlang</h2>
       <p>Hajm kerak bo'lsa tarifni oshiring. Istalgan vaqtda o'zgartirish mumkin.</p>
       <div class="seg" id="plan-seg"><button data-y="0" class="${plansYearly ? '' : 'on'}">Oyiga</button><button data-y="1" class="${plansYearly ? 'on' : ''}">Yiliga</button></div>
-      ${plansYearly && save > 0 ? `<div class="plans-save">Yillik to'lovda ${save}% tejaysiz</div>` : '<div class="plans-save">&nbsp;</div>'}
+      ${plansYearly && save > 0 ? `<div class="plans-save"><span>Yillik to'lovda ${save}% tejaysiz</span></div>` : '<div class="plans-save">&nbsp;</div>'}
     </div>
-    <div class="plans">${d.plans.map((p) => {
+    <div class="plans">${d.plans.map((p, i) => {
       const cur = curGb === p.gb;
       const pr = price(p);
-      return `<div class="plan${p.recommended ? ' rec' : ''}${cur ? ' cur' : ''}">
-        ${p.recommended ? '<div class="plan-tag">Tavsiya etiladi</div>' : ''}
-        <h3>${esc(p.name)}</h3>
-        <div class="plan-gb">${fmtGb(p.gb)}</div>
-        <div class="plan-price">${p.monthly ? `<b>${fmtNum(pr)}</b> <span>${esc(d.currency)} / oyiga</span>` : '<b>Bepul</b>'}</div>
-        <div class="plan-sub">${p.monthly ? (plansYearly ? `Yiliga ${fmtNum(p.monthly * d.yearlyMonths)} ${esc(d.currency)}` : "Har oy to'lanadi") : 'Ro\'yxatdan o\'tganda beriladi'}</div>
-        ${p.google ? `<div class="plan-cmp">Google'da shu hajm: <s>${fmtNum(p.google)} ${esc(d.currency)}</s> / oyiga</div>` : '<div class="plan-cmp">&nbsp;</div>'}
-        <button class="btn ${p.recommended ? 'primary' : ''}" data-plan="${esc(p.id)}" ${cur || !p.monthly ? 'disabled' : ''}>${cur ? 'Joriy tarif' : (p.monthly ? 'Tanlash' : 'Bepul')}</button>
-        <ul><li>${fmtGb(p.gb)} surat va video uchun joy</li><li>Fayllar soni cheklanmagan</li><li>Albomlar va ulashish havolalari</li><li>Shifrlangan saqlash</li></ul>
+      const [c1, c2] = PLAN_COLORS[p.id] || PLAN_FALLBACK[i % PLAN_FALLBACK.length];
+      return `<div class="plan${p.recommended ? ' rec' : ''}${cur ? ' cur' : ''}" style="--pc:${c1};--pc2:${c2}">
+        ${p.recommended ? '<div class="plan-tag">★ Tavsiya etiladi</div>' : ''}
+        <div class="plan-top">
+          <div class="plan-ic">${icon('cloud')}</div>
+          <div class="plan-gb">${fmtGb(p.gb)}</div>
+          <h3>${esc(p.name)}</h3>
+        </div>
+        <div class="plan-body">
+          <div class="plan-price">${p.monthly ? `<b>${fmtNum(pr)}</b> <span>${esc(d.currency)} / oyiga</span>` : '<b>Bepul</b>'}</div>
+          <div class="plan-sub">${p.monthly ? (plansYearly ? `Yiliga ${fmtNum(p.monthly * d.yearlyMonths)} ${esc(d.currency)}` : "Har oy to'lanadi") : "Ro'yxatdan o'tganda beriladi"}</div>
+          ${p.google ? `<div class="plan-cmp">Google'da shu hajm: <s>${fmtNum(p.google)} ${esc(d.currency)}</s> / oyiga</div>` : '<div class="plan-cmp">&nbsp;</div>'}
+          <button class="btn plan-btn" data-plan="${esc(p.id)}" ${cur || !p.monthly ? 'disabled' : ''}>${cur ? '✓ Joriy tarif' : (p.monthly ? 'Tanlash' : 'Bepul')}</button>
+          <ul><li>${fmtGb(p.gb)} surat va video uchun joy</li><li>Fayllar soni cheklanmagan</li><li>Albomlar va ulashish havolalari</li><li>Shifrlangan saqlash</li></ul>
+        </div>
       </div>`;
     }).join('')}</div>`;
   hydrateIcons(main);
