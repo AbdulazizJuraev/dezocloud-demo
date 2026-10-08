@@ -35,7 +35,9 @@
 
   const live = () => items.filter((m) => !m.deleted_at);
   const cell = (v) => Math.round(v * 10);
-  const used = () => items.reduce((n, m) => n + m.size, 0);
+  // ?joy=tola — xotira deyarli to'lgan holatni ko'rsatadi (ogohlantirish kartasi)
+  const FULL = /[?&]joy=tola/.test(location.search);
+  const used = () => (FULL ? 13.95 * GB : items.reduce((n, m) => n + m.size, 0));
   const strip = (m) => ({ ...m });
   const err = (status, error) => Object.assign(new Error(error), { status });
   const albumOf = (id) => albums.find((a) => a.id === id) || (() => { throw err(404, 'Albom topilmadi'); })();
@@ -45,7 +47,7 @@
   function handle(method, path, q, body) {
     let m;
     if (path === '/api/me') return { loggedIn: true, user: user(), registration: 'invite' };
-    if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo' };
+    if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo', yandex: true };
     if (path === '/api/login' || path === '/api/register' || path === '/api/auth/google') return { ok: true, user: user() };
     if (path === '/api/stats') {
       const l = live(), main = l.filter((x) => !x.archived);

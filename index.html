@@ -16,12 +16,13 @@
       <img class="logo-img on-light" src="./logo-light.png" alt="DezoCloud" style="height:24px"><img class="logo-img on-dark" src="./logo-dark.png" alt="" aria-hidden="true" style="height:24px">
     </div>
     <div class="search">
-      <button class="icon-btn" tabindex="-1" aria-hidden="true" data-icon="search"></button>
+      <button class="icon-btn" id="search-back" aria-label="Qidiruvni yopish" data-icon="search"></button>
       <input id="search" type="search" placeholder="Fayl nomi bo'yicha qidirish" autocomplete="off">
       <button class="icon-btn" id="search-clear" aria-label="Tozalash" hidden data-icon="close"></button>
     </div>
     <div class="spacer"></div>
     <button class="btn primary only-wide" id="upload-btn"><span data-icon="upload"></span>Yuklash</button>
+    <button class="icon-btn only-narrow" id="upload-icon" aria-label="Yuklash" data-icon="add"></button>
     <button class="avatar" id="avatar" aria-label="Hisob">?</button>
   </header>
 
@@ -54,10 +55,9 @@
 <div class="selbar" id="selbar" hidden></div>
 <button class="fab" id="fab" aria-label="Yuklash" data-icon="upload"></button>
 <nav class="tabbar" id="tabbar">
-  <button data-view="photos"><span data-icon="photo"></span>Fotolar</button>
-  <button data-view="albums"><span data-icon="album"></span>Albomlar</button>
-  <button data-view="favorites"><span data-icon="star"></span>Sevimli</button>
-  <button data-view="trash"><span data-icon="delete"></span>Savatcha</button>
+  <button data-view="photos"><span data-icon="photo"></span><b>Fotolar</b></button>
+  <button data-view="collections"><span data-icon="album"></span><b>To'plamlar</b></button>
+  <button data-view="search"><span data-icon="search"></span><b>Qidiruv</b></button>
 </nav>
 <input type="file" id="file" accept="image/*,video/*,.heic,.heif,.mkv,.mts,.m2ts" multiple hidden>
 <div id="overlay-root"></div>

@@ -3,6 +3,7 @@
   --bg: #ffffff; --bg-2: #f1f3f4; --bg-3: #e3e6ea; --fg: #202124; --muted: #5f6368; --line: #dadce0;
   --accent: #1a73e8; --accent-bg: #e8f0fe; --accent-fg: #ffffff; --danger: #d93025; --ok: #188038;
   --shadow: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
+  --warn-bg: #fce8e6; --warn-fg: #5f2120; --warn-btn: #b3261e; --warn-btn-fg: #fff;
   --h: 176px;               /* surat qatori balandligi */
   --head: 64px; --tabbar: 56px; --side: 256px;
   color-scheme: light;
@@ -11,6 +12,7 @@
   :root:not([data-theme="light"]) {
     --bg: #202124; --bg-2: #2d2e31; --bg-3: #3c4043; --fg: #e8eaed; --muted: #9aa0a6; --line: #3c4043;
     --accent: #8ab4f8; --accent-bg: #394457; --accent-fg: #202124; --danger: #f28b82; --ok: #81c995;
+    --warn-bg: #8c1d18; --warn-fg: #ffdad6; --warn-btn: #f2b8b5; --warn-btn-fg: #601410;
     --shadow: 0 1px 3px rgba(0,0,0,.6), 0 4px 8px 3px rgba(0,0,0,.4);
     color-scheme: dark;
   }
@@ -18,6 +20,7 @@
 :root[data-theme="dark"] {
   --bg: #202124; --bg-2: #2d2e31; --bg-3: #3c4043; --fg: #e8eaed; --muted: #9aa0a6; --line: #3c4043;
   --accent: #8ab4f8; --accent-bg: #394457; --accent-fg: #202124; --danger: #f28b82; --ok: #81c995;
+    --warn-bg: #8c1d18; --warn-fg: #ffdad6; --warn-btn: #f2b8b5; --warn-btn-fg: #601410;
   --shadow: 0 1px 3px rgba(0,0,0,.6), 0 4px 8px 3px rgba(0,0,0,.4);
   color-scheme: dark;
 }
@@ -147,8 +150,25 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
 .dayblock { flex: 0 0 auto; max-width: 100%; width: calc(var(--h) * var(--sar) + var(--n) * 2px + 8px); }
 .dayblock .day { position: static; padding: 14px 4px 6px; font-size: 13px; }
 .navlabel { padding: 14px 26px 4px; font-size: 12px; color: var(--muted); font-weight: 500; }
-.storewarn { margin: 8px 4px 4px; padding: 12px 18px; border-radius: 24px; background: #b3261e; color: #fff; font-size: 13px; }
-.storewarn a { color: #fff; font-weight: 500; }
+.storewarn { margin: 8px 4px 4px; padding: 12px 18px; border-radius: 24px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; display: flex; align-items: center; gap: 16px; }
+.storewarn .sw-t { flex: 1; display: grid; gap: 2px; }
+.storewarn .sw-t b { font-weight: 500; }
+.storewarn .sw-b { display: flex; gap: 8px; flex: none; }
+.storewarn .sw-b button { border: 0; background: transparent; color: var(--warn-fg); height: 36px; padding: 0 16px; border-radius: 18px; font-weight: 500; }
+.storewarn .sw-b button.pri { background: var(--warn-btn); color: var(--warn-btn-fg); }
+.only-narrow { display: none; }
+.coll { padding: 4px 8px 24px; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding-top: 12px; }
+.chip { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); text-align: left; }
+.chip:hover { background: var(--bg-2); }
+.chip span { color: var(--muted); display: grid; }
+.chip b { font-weight: 500; flex: 1; line-height: 1.2; }
+.chip i { font-style: normal; font-size: 12px; color: var(--muted); }
+.coll-h { margin: 22px 4px 4px; font-size: 18px; font-weight: 400; }
+.coll-store { padding: 8px 4px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); max-width: 420px; }
+.coll-store .bar { height: 6px; border-radius: 3px; background: var(--bg-3); overflow: hidden; }
+.coll-store .bar i { display: block; height: 100%; background: var(--accent); }
+.coll-store .btn { width: fit-content; }
 
 .ph {
   position: relative; flex-grow: var(--ar); width: calc(var(--h) * var(--ar)); max-width: 100%;
@@ -282,14 +302,21 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
 .dropveil { position: fixed; inset: 0; z-index: 75; background: rgba(26,115,232,.18); border: 3px dashed var(--accent); display: grid; place-items: center; font-size: 22px; color: var(--accent); pointer-events: none; }
 .scrim { display: none; }
 
-/* ── Telefon va planshet ─────────────────────────────────────── */
+/* ── Telefon va planshet (Google Photos mobil uslubi) ───────── */
 @media (max-width: 900px) {
-  :root { --h: 104px; --head: 56px; }
-  .top .spacer { display: none; }
-  .brand .logo-img { height: 20px !important; }
+  :root { --head: 56px; }
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "main"; }
-  .brand { width: auto; }
-  .search { max-width: none; }
+  .brand { width: auto; flex: 1; }
+  .brand .logo-img { height: 22px !important; }
+  #menu-btn, .top .spacer, .only-wide { display: none !important; }
+  .only-narrow { display: inline-grid; }
+  .avatar { margin-left: 2px; }
+  /* Qidiruv tepada ko'rinmaydi; pastdagi «Qidiruv» tugmasi bosilganda ochiladi */
+  .search { display: none; max-width: none; height: 44px; }
+  header.top.searching .brand, header.top.searching #upload-icon, header.top.searching .avatar { display: none; }
+  header.top.searching .search { display: flex; }
+  header.top.searching { padding: 0 8px; }
+  header.top.searching .search { background: var(--bg-2); }
   aside.side {
     position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: 280px; background: var(--bg);
     transform: translateX(-100%); transition: transform .2s; padding-top: 12px; box-shadow: none;
@@ -298,28 +325,37 @@ main.main { grid-area: main; overflow-y: auto; position: relative; padding: 0 16
   .side-brand { display: block; }
   .nav button { margin-right: 8px; }
   .scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.45); }
-  main.main { padding: 0 6px calc(var(--tabbar) + 90px) 6px; }
+  main.main { padding: 0 0 calc(var(--tabbar) + 48px) 0; }
+  .page-head, .notice, .coll, .albums, .plans, .plans-head { padding-left: 12px; padding-right: 12px; }
+  .month { padding: 14px 12px 2px; font-size: 18px; }
   .days { display: block; }
   .dayblock { width: auto; }
-  .month { padding: 16px 4px 2px; font-size: 18px; }
-  .day, .dayblock .day { position: sticky; top: 38px; z-index: 5; background: var(--bg); padding: 10px 4px 6px; }
+  .day, .dayblock .day { position: sticky; top: 42px; z-index: 5; background: var(--bg); padding: 8px 12px 6px; }
+  /* Kvadrat katakli to'r: telefonda 3 ustun, chetdan chetgacha */
+  .group { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 2px; }
+  .group::after { display: none; }
+  .ph { width: auto; flex-grow: 0; max-width: none; aspect-ratio: 1; border-radius: 0; }
+  .ph::before { display: none; }
+  .storewarn { margin: 6px 12px 10px; padding: 20px 20px 14px; border-radius: 28px; display: grid; gap: 12px; font-size: 16px; }
+  .storewarn .sw-t b { font-size: 20px; line-height: 1.25; }
+  .storewarn .sw-b { justify-content: flex-end; }
+  .storewarn .sw-b button { height: 44px; padding: 0 22px; border-radius: 22px; font-size: 15px; }
+  .albums { grid-template-columns: repeat(2, 1fr); gap: 16px 10px; }
+  /* Pastdagi suzuvchi panel */
   .tabbar {
-    display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 35;
-    height: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: var(--bg); border-top: 1px solid var(--line);
+    display: flex; gap: 4px; position: fixed; left: 50%; transform: translateX(-50%); z-index: 35;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 6px; border-radius: 34px;
+    background: var(--bg-2); box-shadow: 0 2px 10px rgba(0,0,0,.25), 0 0 0 1px var(--line);
   }
-  .tabbar button { border: 0; background: transparent; display: grid; justify-items: center; align-content: center; gap: 2px; font-size: 11px; color: var(--muted); }
-  .tabbar button.on { color: var(--accent); }
-  .fab {
-    display: grid; place-items: center; position: fixed; right: 16px; bottom: calc(var(--tabbar) + 16px + env(safe-area-inset-bottom, 0px));
-    z-index: 36; width: 56px; height: 56px; border-radius: 16px; border: 0; background: var(--accent); color: var(--accent-fg); box-shadow: var(--shadow);
-  }
-  .only-wide { display: none !important; }
-  .upanel { right: 0; left: 0; width: auto; max-width: none; bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px)); border-radius: 12px 12px 0 0; }
+  .tabbar button { border: 0; background: transparent; height: 52px; min-width: 52px; padding: 0 14px; border-radius: 26px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--fg); }
+  .tabbar button b { display: none; font-size: 14px; font-weight: 500; }
+  .tabbar button.on { background: var(--accent-bg); color: var(--accent); }
+  .tabbar button.on b { display: inline; }
+  .fab { display: none; }
+  .upanel { right: 0; left: 0; width: auto; max-width: none; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); border-radius: 12px 12px 0 0; }
   .vinfo { top: auto; width: 100%; max-height: 62%; border-radius: 16px 16px 0 0; }
   .vnav { display: none; }
-  .albums { grid-template-columns: repeat(2, 1fr); gap: 16px 10px; }
-  .toast { bottom: calc(var(--tabbar) + 24px); }
+  .toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* Yon panelni yashirish (kompyuterda) */

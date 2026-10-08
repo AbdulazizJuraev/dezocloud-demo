@@ -24,7 +24,7 @@ const state = {
 const main = $('#main');
 const TITLES = {
   photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', places: 'Joylar',
-  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar',
+  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar",
 };
 
 // Joy katagi (~10 km) nomi: koordinatalar
@@ -83,14 +83,34 @@ function route() {
 
 function syncNav() {
   const active = state.view === 'album' ? 'albums' : state.view === 'place' ? 'places' : state.view;
-  $$('#nav button, #tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === active));
+  $$('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === active));
+  // Pastki panel: Fotolar yoki To'plamlar (qolgan hamma bo'limlar to'plamlarga kiradi)
+  const tab = ['photos', 'collections'].includes(state.view) ? state.view : (state.view === 'photos' ? 'photos' : 'collections');
+  $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === tab));
   const album = state.view === 'album' ? state.albums.find((a) => a.id === state.albumId) : null;
   document.title = `${album ? album.name : TITLES[state.view] || TITLES.places} — DezoCloud`;
 }
 
 $$('#nav button, #tabbar button').forEach((b) => {
-  b.onclick = () => { $('#search').value = ''; state.search = ''; $('#search-clear').hidden = true; navigate(`#/${b.dataset.view}`); };
+  b.onclick = () => {
+    if (b.dataset.view === 'search') return openMobileSearch();
+    closeMobileSearch(true);
+    $('#search').value = ''; state.search = ''; $('#search-clear').hidden = true; navigate(`#/${b.dataset.view}`);
+  };
 });
+
+// Telefonda qidiruv: pastdagi «Qidiruv» tugmasi tepa panelni qidiruv maydoniga aylantiradi
+function openMobileSearch() {
+  $('#top').classList.add('searching');
+  $('#search-back').innerHTML = icon('back');
+  $('#search').focus();
+}
+function closeMobileSearch(silent) {
+  if (!$('#top').classList.contains('searching')) return;
+  $('#top').classList.remove('searching');
+  if (!silent && state.search) { $('#search').value = ''; $('#search-clear').hidden = true; state.search = ''; reload(); }
+}
+$('#search-back').onclick = () => closeMobileSearch();
 
 // Yon panelni yig'ish (kompyuter) / ochish (telefon)
 const wide = matchMedia('(min-width: 901px)');
@@ -134,6 +154,7 @@ async function loadAlbums() {
     state.albums = (await api('/api/albums')).items;
     syncNav();
     if (state.view === 'albums') renderAlbums();
+    if (state.view === 'collections') renderCollections();
   } catch {}
 }
 
@@ -159,6 +180,7 @@ async function reload() {
   state.items = []; state.page = 1; state.pages = 1; state.total = 0;
 
   if (state.view === 'albums' && !state.search) { renderAlbums(); return; }
+  if (state.view === 'collections') { renderCollections(); return; }
   if (state.view === 'places' && !state.search) { await renderPlaces(token); return; }
   if (state.view === 'plans') { await renderPlans(token); return; }
   main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
@@ -211,7 +233,13 @@ function pageHead() {
   let warn = '';
   const q = state.user;
   if (q?.quota && q.used / q.quota >= 0.9) {
-    warn = `<div class="storewarn">Joy tugayapti (band: ${Math.min(100, Math.round((q.used / q.quota) * 100))}%). To'lganda yangi surat yuklab bo'lmaydi — keraksiz fayllarni o'chiring yoki administratordan joy so'rang.</div>`;
+    let hidden = false;
+    try { hidden = sessionStorage.getItem('dc-sw') === '1'; } catch {}
+    if (!hidden) {
+      warn = `<div class="storewarn"><div class="sw-t"><b>Xotirangizda joy kam (${Math.min(100, Math.round((q.used / q.quota) * 100))}% band)</b>
+        <span>Joy tugagach yangi surat va videolar yuklanmaydi. Keraksiz fayllarni o'chiring yoki kengroq tarifga o'ting.</span></div>
+        <div class="sw-b"><button data-act="sw-dismiss">Hozir emas</button><button class="pri" data-act="sw-plans">Tariflar</button></div></div>`;
+    }
   }
   if (state.view === 'album') {
     const a = state.albums.find((x) => x.id === state.albumId);
@@ -582,6 +610,41 @@ function renderAlbums() {
   hydrateIcons(main);
 }
 
+// ── To'plamlar (telefonda asosiy bo'limlar) ───────────────────────
+function renderCollections() {
+  disconnectObserver();
+  syncNav();
+  const st = state.stats || {};
+  const q = state.user || {};
+  const pct = q.quota ? Math.min(100, (q.used / q.quota) * 100) : 0;
+  const chip = (go, ic, label, n) => `<button class="chip" data-go="#/${go}"><span>${icon(ic)}</span><b>${label}</b>${n ? `<i>${n}</i>` : ''}</button>`;
+  main.innerHTML = `<div class="coll">
+    <div class="chips">
+      ${chip('videos', 'video', 'Videolar', st.videos)}
+      ${chip('favorites', 'star', 'Sevimlilar', st.favorites)}
+      ${chip('places', 'place', 'Joylar', st.places)}
+      ${chip('recent', 'recent', "Yaqinda qo'shilgan")}
+      ${chip('archive', 'archive', 'Arxiv', st.archive)}
+      ${chip('trash', 'delete', 'Savatcha', st.trash)}
+    </div>
+    <h3 class="coll-h">Albomlar</h3>
+    <div class="albums">
+      <div class="album new" data-act="new-album"><div class="cover">${icon('add')}</div><div class="nm">Yangi albom</div></div>
+      ${state.albums.map((a) => `<div class="album" data-album="${esc(a.id)}">
+        <div class="cover">${a.cover ? `<img loading="lazy" alt="" src="./t/${a.cover}">` : `<div class="fallback">${icon('album')}</div>`}</div>
+        <div class="nm">${esc(a.name)}</div><div class="ct">${a.n} ta</div></div>`).join('')}
+    </div>
+    <h3 class="coll-h">Xotira</h3>
+    <div class="coll-store">
+      <div class="bar"><i style="width:${q.quota ? Math.max(pct, 1) : 0}%"></i></div>
+      <div>${q.quota ? `Band: ${bytes(q.used || 0)} (jami ${bytes(q.quota)})` : `Band: ${bytes(q.used || 0)}`}</div>
+      <button class="btn sm" data-go="#/plans">Tariflar</button>
+    </div>
+  </div>`;
+  hydrateIcons(main);
+}
+main.addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) navigate(g.dataset.go); });
+
 // ── Tariflar ──────────────────────────────────────────────────────
 const fmtNum = (n) => Math.round(n).toLocaleString('ru-RU').replace(/ /g, ' ');
 const fmtGb = (gb) => (gb >= 1000 ? `${+(gb / 1000).toFixed(1)} TB` : `${gb} GB`);
@@ -673,6 +736,8 @@ async function handleAct(act, e) {
     } else if (act === 'upload') $('#file').click();
     else if (act === 'back') navigate('#/albums');
     else if (act === 'back-places') navigate('#/places');
+    else if (act === 'sw-dismiss') { try { sessionStorage.setItem('dc-sw', '1'); } catch {} e.target.closest('.storewarn')?.remove(); }
+    else if (act === 'sw-plans') navigate('#/plans');
     else if (act === 'day') {
       const key = e.target.closest('.day').dataset.key;
       const ids = $$(`.group[data-key="${key}"] .ph`, main).map((p) => p.dataset.id);
@@ -775,7 +840,7 @@ $('#search').addEventListener('input', (e) => {
   $('#search-clear').hidden = !e.target.value;
   searchTimer = setTimeout(() => {
     state.search = e.target.value.trim();
-    if (state.view === 'albums' || state.view === 'trash') { navigate('#/photos'); return; }
+    if (['albums', 'trash', 'collections', 'plans'].includes(state.view)) { navigate('#/photos'); return; }
     reload();
   }, 300);
 });
@@ -784,6 +849,7 @@ $('#search-clear').onclick = () => { $('#search').value = ''; $('#search-clear')
 // ── Yuklash tugmalari ─────────────────────────────────────────────
 $('#upload-btn').onclick = () => $('#file').click();
 $('#fab').onclick = () => $('#file').click();
+$('#upload-icon').onclick = () => $('#file').click();
 $('#file').onchange = (e) => { enqueue(e.target.files, { maxFileSize: state.maxFileSize }); e.target.value = ''; };
 
 // Faylni sudrab tashlash
