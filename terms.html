@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foydalanish shartlari — DezoCloud</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/app.css">
+<style>
+  .doc { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; line-height: 1.65; }
+  .doc h1 { font-size: 28px; font-weight: 400; margin: 24px 0 4px; }
+  .doc h2 { font-size: 18px; font-weight: 500; margin: 28px 0 6px; }
+  .doc .muted { color: var(--muted); font-size: 13px; }
+  body { height: auto; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <img class="logo-img on-light" src="./logo-light.png" alt="DezoCloud"><img class="logo-img on-dark" src="./logo-dark.png" alt="" aria-hidden="true">
+  <h1>Foydalanish shartlari</h1>
+  <p class="muted">Oxirgi yangilanish: 2026-yil oktyabr</p>
+
+  <p>DezoCloud'dan foydalanish orqali quyidagi shartlarga rozilik bildirasiz.</p>
+
+  <h2>Xizmat haqida</h2>
+  <p>DezoCloud — shaxsiy surat va videolaringizni saqlash, ko'rish va ulashish xizmati. Hisobga kirish taklif kodi bilan yoki xizmat egasi ruxsat bergan usulda amalga oshiriladi.</p>
+
+  <h2>Qoidalar</h2>
+  <ul>
+    <li>Faqat o'zingizga tegishli yoki yuklashga haqqingiz bo'lgan suratlar va videolarni yuklang.</li>
+    <li>Noqonuniy, zo'ravonlik, bolalarga zarar yetkazadigan yoki boshqalarning huquqini buzadigan materiallarni yuklash qat'iyan taqiqlanadi. Bunday hisob ogohlantirishsiz bloklanadi.</li>
+    <li>Xizmatni buzishga, ortiqcha yuklash orqali ishdan chiqarishga yoki boshqa foydalanuvchilarning ma'lumotiga kirishga urinmang.</li>
+    <li>Kirish ma'lumotlaringizni boshqalarga bermang. Hisobingizdagi harakatlar uchun o'zingiz javobgarsiz.</li>
+  </ul>
+
+  <h2>Hajm va tariflar</h2>
+  <p>Har bir hisobga ma'lum hajm beriladi. Ko'proq hajm tariflar sahifasida ko'rsatilgan shartlar bo'yicha beriladi. Hajm to'lganda yangi fayl yuklab bo'lmaydi.</p>
+
+  <h2>Ma'lumotlar xavfsizligi</h2>
+  <p>Fayllaringiz shifrlangan holda saqlanadi, lekin hech bir xizmat 100% kafolat bera olmaydi. Muhim fayllaringizning nusxasini boshqa joyda ham saqlab qo'yishni tavsiya qilamiz.</p>
+
+  <h2>Mas'uliyat chegarasi</h2>
+  <p>Xizmat «bor holicha» taqdim etiladi. Texnik nosozlik, uchinchi tomon xizmatlari (masalan Telegram) ishlamay qolishi yoki boshqa sabablar tufayli ma'lumot yo'qolishi yoki xizmat vaqtincha ishlamasligi mumkin. Buning uchun xizmat egasi qonun ruxsat bergan darajada javobgar bo'lmaydi.</p>
+
+  <h2>O'zgarishlar</h2>
+  <p>Shartlar vaqti-vaqti bilan yangilanishi mumkin. Yangi shartlar shu sahifada e'lon qilinadi.</p>
+
+  <h2>Bog'lanish</h2>
+  <p>Savollar uchun: <b id="contact">xizmat administratori</b>.</p>
+
+  <p style="margin-top:32px"><a href="./login.html">← Kirish sahifasiga qaytish</a> · <a href="./privacy.html">Maxfiylik siyosati</a></p>
+</main>
+<script>
+fetch('/api/config').then((r) => r.json()).then((c) => { if (c.contact) document.getElementById('contact').textContent = c.contact; }).catch(() => {});
+</script>
+</body>
+</html>

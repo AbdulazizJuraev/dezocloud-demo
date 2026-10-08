@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maxfiylik siyosati — DezoCloud</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./css/app.css">
+<style>
+  .doc { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; line-height: 1.65; }
+  .doc h1 { font-size: 28px; font-weight: 400; margin: 24px 0 4px; }
+  .doc h2 { font-size: 18px; font-weight: 500; margin: 28px 0 6px; }
+  .doc p, .doc li { color: var(--fg); }
+  .doc .muted { color: var(--muted); font-size: 13px; }
+  body { height: auto; }
+</style>
+</head>
+<body>
+<main class="doc">
+  <img class="logo-img on-light" src="./logo-light.png" alt="DezoCloud"><img class="logo-img on-dark" src="./logo-dark.png" alt="" aria-hidden="true">
+  <h1>Maxfiylik siyosati</h1>
+  <p class="muted">Oxirgi yangilanish: 2026-yil oktyabr</p>
+
+  <p>DezoCloud — surat va videolarni saqlash xizmati. Bu sahifada qanday ma'lumot yig'ilishi, nimaga ishlatilishi va qanday himoyalanishi yozilgan.</p>
+
+  <h2>Qanday ma'lumot yig'iladi</h2>
+  <ul>
+    <li><b>Hisob ma'lumotlari:</b> login, pochta manzili (agar Google, Microsoft, Facebook, Yandex yoki pochta kodi bilan kirgan bo'lsangiz) va kirish usulining ichki identifikatori. Parolingiz faqat qaytarib bo'lmaydigan (xeshlangan) ko'rinishda saqlanadi.</li>
+    <li><b>Siz yuklagan fayllar:</b> surat va videolar, ularning nomi, hajmi, o'lchami, olingan vaqti. Suratda joylashuv (GPS) ma'lumoti bo'lsa, u ham saqlanadi va faqat sizga ko'rinadi.</li>
+    <li><b>Texnik ma'lumot:</b> xavfsizlik uchun IP manzil va kirish urinishlari qisqa muddat serverda saqlanadi.</li>
+  </ul>
+  <p>Google, Microsoft, Facebook yoki Yandex orqali kirganingizda biz faqat ismingiz (yoki logini), pochta manzilingiz va hisob identifikatorini olamiz. Parolingizni va boshqa ma'lumotlaringizni olmaymiz.</p>
+
+  <h2>Fayllar qayerda saqlanadi</h2>
+  <p>Fayllaringiz shifrlangan (AES-256) holda maxfiy Telegram kanalida saqlanadi. Shifrlash kaliti xizmat serverida turadi. Fayllaringizni boshqa foydalanuvchilar ko'ra olmaydi. Faqat siz yaratgan ulashish havolasi orqali ochiladi.</p>
+
+  <h2>Ma'lumotdan qanday foydalanamiz</h2>
+  <ul>
+    <li>Hisobingizni yuritish, fayllarni ko'rsatish va saqlash uchun.</li>
+    <li>Xavfsizlik uchun (suiiste'molni va tanlab parol terishni to'xtatish).</li>
+  </ul>
+  <p>Ma'lumotlaringizni sotmaymiz, reklama uchun ishlatmaymiz va uchinchi tomonga bermaymiz, qonun talab qilgan hollar bundan mustasno.</p>
+
+  <h2>O'chirish</h2>
+  <p>Faylni savatchaga tashlasangiz, 30 kundan keyin butunlay o'chiriladi (yoki savatchani o'zingiz bo'shatishingiz mumkin). Hisobingizni va barcha fayllaringizni o'chirishni so'rash uchun biz bilan bog'laning.</p>
+
+  <h2>Bog'lanish</h2>
+  <p>Savollar va so'rovlar uchun: <b id="contact">xizmat administratori</b>.</p>
+
+  <p style="margin-top:32px"><a href="./login.html">← Kirish sahifasiga qaytish</a> · <a href="./terms.html">Foydalanish shartlari</a></p>
+</main>
+<script>
+fetch('/api/config').then((r) => r.json()).then((c) => { if (c.contact) document.getElementById('contact').textContent = c.contact; }).catch(() => {});
+</script>
+</body>
+</html>
