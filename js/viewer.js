@@ -52,7 +52,9 @@ function actionsHtml(m) {
   }
   return b('fav', m.favorite ? 'star' : 'starOutline', m.favorite ? 'Sevimlilardan olish' : 'Sevimlilarga', !!m.favorite)
     + b('share', 'share', 'Ulashish') + b('download', 'download', 'Yuklab olish')
-    + b('album', 'album', "Albomga qo'shish") + b('info', 'info', "Ma'lumot") + b('trash', 'delete', 'Savatchaga');
+    + b('album', 'album', "Albomga qo'shish")
+    + (st.ctx.archive ? (st.ctx.archived ? b('archive', 'unarchive', 'Arxivdan chiqarish') : b('archive', 'archive', 'Arxivga')) : '')
+    + b('info', 'info', "Ma'lumot") + b('trash', 'delete', 'Savatchaga');
 }
 
 function show() {
@@ -126,7 +128,17 @@ function renderInfo() {
       ${m.duration ? `<div><dt>Davomiyligi</dt><dd>${duration(m.duration)}</dd></div>` : ''}
       <div><dt>Turi</dt><dd>${esc(m.mime)}</dd></div>
       <div><dt>Yuklangan</dt><dd>${esc(fullDate(m.created_at))}</dd></div>
+      ${typeof m.lat === 'number' ? `<div><dt>Joylashuv</dt><dd><a href="https://www.openstreetmap.org/?mlat=${m.lat}&mlon=${m.lon}#map=14/${m.lat}/${m.lon}" target="_blank" rel="noopener noreferrer">${m.lat.toFixed(4)}, ${m.lon.toFixed(4)} — xaritada ochish</a></dd></div>` : ''}
     </dl>`;
+  // Ro'yxatda joylashuv yo'q: bir marta so'raymiz
+  if (m.lat === undefined && !m._geoAsked) {
+    m._geoAsked = true;
+    fetch(`/api/media/${encodeURIComponent(m.id)}`).then((r) => r.json()).then((d) => {
+      m.lat = typeof d.lat === 'number' ? d.lat : null;
+      m.lon = typeof d.lon === 'number' ? d.lon : null;
+      if (st && item() === m && st.info && typeof m.lat === 'number') renderInfo();
+    }).catch(() => {});
+  }
 }
 
 function go(d) {
@@ -149,6 +161,7 @@ async function act(a) {
       case 'fav': await c.favorite(m); return show();
       case 'share': return c.share(m);
       case 'album': return c.album(m);
+      case 'archive': await c.archive(m); return afterRemoval();
       case 'trash': await c.trashIt(m); return afterRemoval();
       case 'restore': await c.restore(m); return afterRemoval();
       case 'purge': if (await c.purge(m)) return afterRemoval(); return;

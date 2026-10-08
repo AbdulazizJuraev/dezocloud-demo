@@ -1,5 +1,6 @@
 // Yuklash: eskiz yasash, 8 MB bo'laklab yuborish, uzilsa davom ettirish.
 import { icon, esc, bytes, toast, $, hydrateIcons } from './util.js';
+import { readExif } from './exif.js';
 
 const ALLOWED = /\.(jpe?g|png|gif|webp|avif|bmp|heic|heif|mp4|m4v|mov|webm|mkv|avi|3gp|mts|m2ts|mpe?g|wmv)$/i;
 const CHUNK = 8 * 1024 * 1024;
@@ -176,7 +177,7 @@ async function upload(it) {
   const { file } = it;
   const uploadId = (it.uploadId = stableUploadId(file));
   setRow(it, { text: 'Tayyorlanmoqda...' });
-  const meta = await probe(file);
+  const meta = { ...(await probe(file)), ...(await readExif(file)) };   // EXIF: olingan sana va joylashuv
   if (it.cancelled) throw new Fatal('Bekor qilindi');
 
   const q = (offset) => `/api/upload/chunk?uploadId=${uploadId}&offset=${offset}&name=${encodeURIComponent(file.name)}&total=${file.size}`;

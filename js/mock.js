@@ -18,7 +18,10 @@
       kind: video ? 'video' : 'image', size: Math.round((video ? 38 : 3.4) * 1024 * 1024 * (0.6 + (i % 7) / 8)),
       width: aw >= ah ? 1200 : Math.round(1200 * aw / ah), height: aw >= ah ? Math.round(1200 * ah / aw) : 1200,
       duration: video ? 8 + (i * 13) % 140 : null, favorite: i % 9 === 0 ? 1 : 0,
-      taken_at: ts, created_at: ts + 3600000, has_thumb: 1, deleted_at: null,
+      taken_at: ts, created_at: ts + 3600000 + ((i * 37) % 11) * DAY, has_thumb: 1, deleted_at: null,
+      archived: i % 13 === 6 ? 1 : 0,
+      // Ba'zi suratlarga joylashuv: Toshkent, Samarqand, Buxoro
+      ...(i % 4 === 1 ? { lat: [41.31, 39.65, 39.77][i % 3] + (i % 5) * 0.004, lon: [69.28, 66.96, 64.42][i % 3] + (i % 7) * 0.004 } : {}),
     });
   }
   items.sort((a, b) => b.taken_at - a.taken_at);
@@ -31,6 +34,7 @@
   const invites = [{ code: 'K7M2P-9XQ4T', quota_bytes: 10 * GB, note: 'Aka Ali', used_by: null, expires_at: null, created_at: now - DAY }];
 
   const live = () => items.filter((m) => !m.deleted_at);
+  const cell = (v) => Math.round(v * 10);
   const used = () => items.reduce((n, m) => n + m.size, 0);
   const strip = (m) => ({ ...m });
   const err = (status, error) => Object.assign(new Error(error), { status });
@@ -44,9 +48,19 @@
     if (path === '/api/config') return { registration: 'invite', googleClientId: 'demo' };
     if (path === '/api/login' || path === '/api/register' || path === '/api/auth/google') return { ok: true, user: user() };
     if (path === '/api/stats') {
-      const l = live();
-      return { total: l.length, images: l.filter((x) => x.kind === 'image').length, videos: l.filter((x) => x.kind === 'video').length,
-        favorites: l.filter((x) => x.favorite).length, trash: items.length - l.length, ...user() };
+      const l = live(), main = l.filter((x) => !x.archived);
+      return { total: main.length, images: main.filter((x) => x.kind === 'image').length, videos: main.filter((x) => x.kind === 'video').length,
+        favorites: main.filter((x) => x.favorite).length, archive: l.length - main.length, places: main.filter((x) => x.lat != null).length,
+        trash: items.length - l.length, ...user() };
+    }
+    if (path === '/api/places') {
+      const g = new Map();
+      for (const x of live().filter((y) => !y.archived && y.lat != null)) {
+        const k = `${cell(x.lat)},${cell(x.lon)}`;
+        const e = g.get(k) || { la: cell(x.lat), lo: cell(x.lon), n: 0, lat: x.lat, lon: x.lon, cover: x.id };
+        e.n++; g.set(k, e);
+      }
+      return { items: [...g.values()].sort((a, b) => b.n - a.n) };
     }
     if (path === '/api/limits') return { maxFileSize: 20 * GB, partSize: 512 * 1024 * 1024 };
     if (path === '/api/logout' || path === '/api/me/password') return { ok: true };
@@ -56,7 +70,12 @@
       if (q.get('kind')) l = l.filter((x) => x.kind === q.get('kind'));
       if (q.get('fav') === '1') l = l.filter((x) => x.favorite);
       if (q.get('album')) { const a = albumOf(q.get('album')); l = l.filter((x) => a.ids.includes(x.id)); }
+      if (q.get('place')) { const [la, lo] = q.get('place').split(',').map(Number); l = l.filter((x) => x.lat != null && cell(x.lat) === la && cell(x.lon) === lo); }
       if (q.get('search')) l = l.filter((x) => x.name.toLowerCase().includes(q.get('search').toLowerCase()));
+      // Arxivdagilar faqat Arxivda (albom va qidiruvda ko'rinadi)
+      if (q.get('arch') === '1') l = l.filter((x) => x.archived);
+      else if (!q.get('album') && !q.get('search')) l = l.filter((x) => !x.archived);
+      if (q.get('sort') === 'added') l = l.slice().sort((a, b) => b.created_at - a.created_at);
       const limit = Math.min(Number(q.get('limit')) || 120, 300), page = Math.max(Number(q.get('page')) || 1, 1);
       return { items: l.slice((page - 1) * limit, page * limit).map(strip), total: l.length, page, pages: Math.ceil(l.length / limit) || 1 };
     }
@@ -66,6 +85,8 @@
       for (const x of sel) {
         if (body.action === 'trash') x.deleted_at = Date.now();
         else if (body.action === 'restore') x.deleted_at = null;
+        else if (body.action === 'archive') x.archived = 1;
+        else if (body.action === 'unarchive') x.archived = 0;
         else if (body.action === 'favorite') x.favorite = 1;
         else if (body.action === 'unfavorite') x.favorite = 0;
         else if (body.action === 'album-add') { const a = albumOf(body.album); if (!a.ids.includes(x.id)) a.ids.push(x.id); }

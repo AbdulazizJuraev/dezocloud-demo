@@ -22,7 +22,13 @@ const state = {
 };
 
 const main = $('#main');
-const TITLES = { photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', trash: 'Savatcha' };
+const TITLES = {
+  photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', places: 'Joylar',
+  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha',
+};
+
+// Joy katagi (~10 km) nomi: koordinatalar
+const placeName = (lat, lon) => `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'}`;
 
 // ── Ishga tushirish ───────────────────────────────────────────────
 hydrateIcons();
@@ -49,8 +55,9 @@ $('#menu-btn').innerHTML = icon('menu');
 // ── Yo'naltirish (hash) ───────────────────────────────────────────
 function parseHash() {
   const [, a, b] = location.hash.replace(/^#/, '').split('/');
-  if (a === 'album' && b) return { view: 'album', albumId: decodeURIComponent(b) };
-  return { view: TITLES[a] ? a : 'photos', albumId: null };
+  if (a === 'album' && b) return { view: 'album', albumId: decodeURIComponent(b), place: null };
+  if (a === 'place' && /^-?\d+,-?\d+$/.test(decodeURIComponent(b || ''))) return { view: 'place', albumId: null, place: decodeURIComponent(b) };
+  return { view: TITLES[a] ? a : 'photos', albumId: null, place: null };
 }
 
 function navigate(h) {
@@ -60,9 +67,10 @@ function navigate(h) {
 window.addEventListener('hashchange', () => { if (!viewerOpen()) route(); });
 
 function route() {
-  const { view, albumId } = parseHash();
+  const { view, albumId, place } = parseHash();
   state.view = view;
   state.albumId = albumId;
+  state.place = place;
   state.selected.clear();
   closeSide();
   syncNav();
@@ -74,10 +82,10 @@ function route() {
 }
 
 function syncNav() {
-  const active = state.view === 'album' ? 'albums' : state.view;
+  const active = state.view === 'album' ? 'albums' : state.view === 'place' ? 'places' : state.view;
   $$('#nav button, #tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === active));
   const album = state.view === 'album' ? state.albums.find((a) => a.id === state.albumId) : null;
-  document.title = `${album ? album.name : TITLES[state.view]} — DezoCloud`;
+  document.title = `${album ? album.name : TITLES[state.view] || TITLES.places} — DezoCloud`;
 }
 
 $$('#nav button, #tabbar button').forEach((b) => {
@@ -109,6 +117,8 @@ async function loadStats() {
     $('#c-videos').textContent = s.videos || '';
     $('#c-fav').textContent = s.favorites || '';
     $('#c-trash').textContent = s.trash || '';
+    $('#c-places').textContent = s.places || '';
+    $('#c-arch').textContent = s.archive || '';
     const meter = $('#meter');
     meter.hidden = false;
     const pct = s.quota ? Math.min(100, (s.used / s.quota) * 100) : 0;
@@ -132,6 +142,9 @@ function listParams(page) {
   if (state.view === 'videos') p.set('kind', 'video');
   if (state.view === 'favorites') p.set('fav', '1');
   if (state.view === 'album') p.set('album', state.albumId);
+  if (state.view === 'place') p.set('place', state.place);
+  if (state.view === 'recent') p.set('sort', 'added');
+  if (state.view === 'archive') p.set('arch', '1');
   if (state.search) p.set('search', state.search);
   return p;
 }
@@ -146,6 +159,7 @@ async function reload() {
   state.items = []; state.page = 1; state.pages = 1; state.total = 0;
 
   if (state.view === 'albums' && !state.search) { renderAlbums(); return; }
+  if (state.view === 'places' && !state.search) { await renderPlaces(token); return; }
   main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
   try {
     if (state.view === 'trash') {
@@ -160,6 +174,7 @@ async function reload() {
   } catch (e) {
     if (token !== state.token) return;
     if (state.view === 'album') { toast(e.message); navigate('#/albums'); return; }
+    if (state.view === 'place') { toast(e.message); navigate('#/places'); return; }
     main.innerHTML = `<div class="emptyview"><h3>Yuklab bo'lmadi</h3>${esc(e.message)}</div>`;
     return;
   }
@@ -190,7 +205,7 @@ let lastBlock = null;
 let observer = null;
 
 function pageHead() {
-  const t = state.search ? `Qidiruv: «${esc(state.search)}»` : (state.view === 'album' || state.view === 'photos' ? '' : TITLES[state.view]);
+  const t = state.search ? `Qidiruv: «${esc(state.search)}»` : (state.view === 'album' || state.view === 'place' || state.view === 'photos' ? '' : TITLES[state.view]);
   let h = '';
   let warn = '';
   const q = state.user;
@@ -202,6 +217,13 @@ function pageHead() {
     h = `<div class="page-head"><button class="icon-btn" data-act="back" aria-label="Orqaga">${icon('back')}</button>
       <h2>${esc(a?.name || 'Albom')}</h2><span class="sub">${state.total} ta</span><span class="grow"></span>
       <button class="icon-btn" data-act="album-menu" aria-label="Albom amallari">${icon('more')}</button></div>`;
+  } else if (state.view === 'place') {
+    const [la, lo] = state.place.split(',').map((x) => Number(x) / 10);
+    h = `<div class="page-head"><button class="icon-btn" data-act="back-places" aria-label="Orqaga">${icon('back')}</button>
+      <h2>${esc(placeName(la, lo))}</h2><span class="sub">${state.total} ta</span></div>`;
+  } else if (state.view === 'archive' && !state.search) {
+    h = `<div class="page-head"><h2>Arxiv</h2>${state.total ? `<span class="sub">${state.total} ta</span>` : ''}</div>
+      <div class="notice">Arxivdagi suratlar «Fotolar»da ko'rinmaydi, lekin o'chmaydi. Albomlarda va qidiruvda topiladi.</div>`;
   } else if (state.view === 'trash') {
     h = `<div class="page-head"><h2>Savatcha</h2><span class="grow"></span>
       ${state.items.length ? '<button class="btn sm danger" data-act="empty-trash">Savatchani bo\'shatish</button>' : ''}</div>
@@ -221,6 +243,9 @@ function emptyHtml() {
     case 'favorites': return e('star', "Sevimlilar yo'q", "Surat ustidagi ★ tugmasini bosing.");
     case 'album': return e('album', "Albom bo'sh", "Fotolardan tanlab, «Albomga qo'shish» ni bosing yoki shu yerning o'zida yuklang.", up);
     case 'trash': return e('delete', 'Savatcha bo\'sh', 'O\'chirilgan fayllar shu yerga tushadi.');
+    case 'archive': return e('archive', "Arxiv bo'sh", "Suratni tanlab, «Arxivga» tugmasini bosing — u «Fotolar»dan yashirinadi, lekin o'chmaydi.");
+    case 'recent': return e('recent', "Hali hech narsa yo'q", "Yangi yuklangan fayllar shu yerda birinchi bo'lib ko'rinadi.", up);
+    case 'place': return e('place', "Bu joyda surat yo'q", '');
     default: return e('photo', "Hali surat yo'q", "Surat va videolaringizni yuklang — ular shu yerda sana bo'yicha tartiblanadi.", up);
   }
 }
@@ -249,7 +274,7 @@ function appendItems(items) {
   const tl = $('#tl');
   if (!tl) return;
   for (const m of items) {
-    const ts = m.taken_at || m.created_at || m.deleted_at;
+    const ts = state.view === 'recent' ? m.created_at : (m.taken_at || m.created_at || m.deleted_at);
     const key = state.view === 'trash' ? 'trash' : dayKey(ts);
     if (key !== lastKey) {
       lastGroup = document.createElement('div');
@@ -347,6 +372,7 @@ function updateSelUI() {
     + (trash
       ? btn('restore', 'restore', 'Tiklash') + btn('purge', 'delete', "Butunlay o'chirish")
       : btn('fav', 'star', 'Sevimlilarga') + btn('album', 'album', "Albomga qo'shish") + btn('download', 'download', 'Yuklab olish')
+        + (state.view === 'archive' ? btn('unarchive', 'unarchive', 'Arxivdan chiqarish') : btn('archive', 'archive', 'Arxivga'))
         + (state.view === 'album' ? btn('unalbum', 'remove', 'Albomdan olib tashlash') : '') + btn('trash', 'delete', 'Savatchaga'));
   syncDayChecks();
 }
@@ -419,6 +445,11 @@ $('#selbar').addEventListener('click', async (e) => {
       toast(allFav ? 'Sevimlilardan olindi' : 'Sevimlilarga qo\'shildi');
       if (state.view === 'favorites' && allFav) removeLocal(ids);
       clearSelection(); loadStats();
+    } else if (a === 'archive' || a === 'unarchive') {
+      await bulk(a, ids);
+      removeLocal(ids);
+      toast(a === 'archive' ? `${ids.length} ta fayl arxivga o'tkazildi` : `${ids.length} ta fayl arxivdan chiqarildi`);
+      loadStats();
     } else if (a === 'trash') { await bulk('trash', ids); removeLocal(ids); toast(`${ids.length} ta fayl savatchaga olindi`); loadStats(); loadAlbums(); }
     else if (a === 'restore') { await bulk('restore', ids); removeLocal(ids); toast(`${ids.length} ta fayl tiklandi`); loadStats(); loadAlbums(); }
     else if (a === 'purge') {
@@ -483,6 +514,12 @@ function viewerCtx() {
       loadStats();
       if (state.view === 'favorites' && !want) { /* ro'yxatdan chiqadi, lekin ko'rish oynasida qoladi */ }
     },
+    archived: state.view === 'archive',
+    archive: async (m) => {
+      const to = state.view === 'archive' ? 'unarchive' : 'archive';
+      await bulk(to, [m.id]); removeLocal([m.id]);
+      toast(to === 'archive' ? 'Arxivga o\'tkazildi' : 'Arxivdan chiqarildi'); loadStats();
+    },
     trashIt: async (m) => { await bulk('trash', [m.id]); removeLocal([m.id]); toast('Savatchaga olindi'); loadStats(); loadAlbums(); },
     restore: async (m) => { await bulk('restore', [m.id]); removeLocal([m.id]); toast('Tiklandi'); loadStats(); },
     purge: async (m) => {
@@ -544,6 +581,22 @@ function renderAlbums() {
   hydrateIcons(main);
 }
 
+// ── Joylar ro'yxati ───────────────────────────────────────────────
+async function renderPlaces(token) {
+  disconnectObserver();
+  syncNav();
+  main.innerHTML = '<div class="loading">Yuklanmoqda…</div>';
+  let items = [];
+  try { items = (await api('/api/places')).items; } catch (e) { toast(e.message); }
+  if (token !== state.token) return;
+  main.innerHTML = `<div class="page-head"><h2>Joylar</h2></div>` + (items.length
+    ? `<div class="albums">${items.map((p) => `<div class="album" data-place="${p.la},${p.lo}">
+        <div class="cover">${p.cover ? `<img loading="lazy" alt="" src="./t/${p.cover}">` : `<div class="fallback">${icon('place')}</div>`}</div>
+        <div class="nm">${esc(placeName(p.lat, p.lon))}</div><div class="ct">${p.n} ta</div></div>`).join('')}</div>`
+    : `<div class="emptyview">${icon('place')}<h3>Joylar yo'q</h3>Telefon yoki kamerada joylashuv yoqilgan holda olingan suratlar shu yerda joyi bo'yicha to'planadi.</div>`);
+  hydrateIcons(main);
+}
+
 async function handleAct(act, e) {
   try {
     if (act === 'new-album') {
@@ -554,6 +607,7 @@ async function handleAct(act, e) {
       navigate(`#/album/${a.id}`);
     } else if (act === 'upload') $('#file').click();
     else if (act === 'back') navigate('#/albums');
+    else if (act === 'back-places') navigate('#/places');
     else if (act === 'day') {
       const key = e.target.closest('.day').dataset.key;
       const ids = $$(`.group[data-key="${key}"] .ph`, main).map((p) => p.dataset.id);
@@ -593,6 +647,8 @@ async function handleAct(act, e) {
 main.addEventListener('click', (e) => {
   const al = e.target.closest('.album[data-album]');
   if (al) navigate(`#/album/${al.dataset.album}`);
+  const pl = e.target.closest('.album[data-place]');
+  if (pl) navigate(`#/place/${pl.dataset.place}`);
 });
 
 // ── Ulashish ──────────────────────────────────────────────────────
