@@ -24,7 +24,7 @@ const state = {
 const main = $('#main');
 const TITLES = {
   photos: 'Fotolar', videos: 'Videolar', favorites: 'Sevimlilar', albums: 'Albomlar', places: 'Joylar',
-  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar", storage: 'Xotira',
+  recent: "Yaqinda qo'shilgan", archive: 'Arxiv', trash: 'Savatcha', plans: 'Tariflar', collections: "To'plamlar", storage: 'Xotira', create: 'Yuklash',
 };
 
 // Xotira: keraksiz fayl toifalari
@@ -101,7 +101,7 @@ function syncNav() {
   const active = state.view === 'album' ? 'albums' : state.view === 'place' ? 'places' : state.view;
   $$('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === active));
   // Pastki panel: Fotolar yoki To'plamlar (qolgan hamma bo'limlar to'plamlarga kiradi)
-  const tab = ['photos', 'collections'].includes(state.view) ? state.view : (state.view === 'photos' ? 'photos' : 'collections');
+  const tab = state.view === 'create' ? 'upload' : (['photos', 'collections'].includes(state.view) ? state.view : 'collections');
   $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === tab));
   const album = state.view === 'album' ? state.albums.find((a) => a.id === state.albumId) : null;
   document.title = `${album ? album.name : (state.view === 'cleanup' ? CLEAN_TITLES[state.clean] : TITLES[state.view]) || TITLES.places} — DezoCloud`;
@@ -110,7 +110,7 @@ function syncNav() {
 $$('#nav button, #tabbar button').forEach((b) => {
   b.onclick = () => {
     if (b.dataset.view === 'search') return openSearchPage();
-    if (b.dataset.view === 'upload') return $('#file').click();
+    if (b.dataset.view === 'upload') { closeMobileSearch(true); return navigate('#/create'); }
     closeMobileSearch(true);
     $('#search').value = ''; state.search = ''; $('#search-clear').hidden = true; navigate(`#/${b.dataset.view}`);
   };
@@ -316,6 +316,7 @@ async function reload() {
 
   if (state.view === 'albums' && !state.search) { renderAlbums(); return; }
   if (state.view === 'collections') { renderCollections(); return; }
+  if (state.view === 'create') { await renderCreate(); return; }
   if (state.view === 'places' && !state.search) { await renderPlaces(token); return; }
   if (state.view === 'plans') { await renderPlans(token); return; }
   if (state.view === 'storage') { await renderStorage(token); return; }
@@ -814,6 +815,56 @@ main.addEventListener('click', async (e) => {
   }
 });
 
+// ── Yaratish / Yuklash sahifasi (Google Photos "Yaratish" bo'limidan ilhomlangan) ─────
+function pickFiles(accept) {
+  const f = $('#file');
+  const old = f.getAttribute('accept');
+  f.setAttribute('accept', accept || old);
+  f.click();
+  setTimeout(() => f.setAttribute('accept', old), 1500);   // keyingi safar hammasi tanlansin
+}
+
+async function renderCreate() {
+  disconnectObserver();
+  syncNav();
+  const card = (act, c1, c2, ic, title, text) => `<button class="cr-card" data-cr="${act}" style="--c1:${c1};--c2:${c2}">
+    <span class="cr-shape"><span class="cr-ic">${icon(ic)}</span></span>
+    <b>${title}</b><small>${text}</small></button>`;
+  main.innerHTML = `<div class="create">
+    <div class="cr-strip" id="cr-strip" hidden><div class="cr-strip-row" id="cr-strip-row"></div></div>
+    <h1 class="cr-title">Yuklash</h1>
+    <p class="cr-sub">Nimani qo'shmoqchisiz?</p>
+    <div class="cr-row">
+      ${card('photos', '#1a73e8', '#6fb1ff', 'photo', 'Suratlar', 'Telefon yoki kompyuterdan suratlarni yuklang')}
+      ${card('videos', '#e8453c', '#ff9a8b', 'video', 'Videolar', 'Videolarni asl sifatida yuklang')}
+      ${card('album', '#7c4dff', '#e040fb', 'album', 'Yangi albom', "Suratlarni mavzu bo'yicha to'plang")}
+      ${window.DezoApp ? card('backup', '#00a86b', '#7fe3b5', 'cloud', 'Telefon zaxirasi', "Galereya o'zi bulutga ko'chib turadi") : ''}
+      ${card('storage', '#f9ab00', '#ff7043', 'cloud', 'Xotira', "Joyni boshqaring, keraksizini o'chiring")}
+      ${card('plans', '#d81b60', '#ff7eb3', 'star', 'Tariflar', "Ko'proq joy kerakmi? Tarifni tanlang")}
+    </div>
+  </div>`;
+  hydrateIcons(main);
+  // Eng so'nggi yuklanganlar: tepada kichik tasma
+  try {
+    const d = await api('/api/media?sort=added&limit=12');
+    if (state.view !== 'create' || !d.items.length) return;
+    $('#cr-strip-row').innerHTML = d.items.map((m) => (m.has_thumb ? `<img alt="" src="./t/${m.id}">` : '')).join('');
+    $('#cr-strip').hidden = false;
+  } catch {}
+}
+
+main.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-cr]');
+  if (!c || state.view !== 'create') return;
+  const a = c.dataset.cr;
+  if (a === 'photos') pickFiles('image/*,.heic,.heif');
+  else if (a === 'videos') pickFiles('video/*,.mkv,.mts,.m2ts');
+  else if (a === 'album') handleAct('new-album', e);
+  else if (a === 'backup') window.DezoApp?.openBackupSettings();
+  else if (a === 'storage') navigate('#/storage');
+  else if (a === 'plans') navigate('#/plans');
+});
+
 // ── To'plamlar (telefonda asosiy bo'limlar) ───────────────────────
 function renderCollections() {
   disconnectObserver();
@@ -1061,7 +1112,7 @@ $('#search').addEventListener('input', (e) => {
   $('#search-clear').hidden = !e.target.value;
   searchTimer = setTimeout(() => {
     state.search = e.target.value.trim();
-    if (['albums', 'trash', 'collections', 'plans', 'storage'].includes(state.view)) { navigate('#/photos'); return; }
+    if (['albums', 'trash', 'collections', 'plans', 'storage', 'create'].includes(state.view)) { navigate('#/photos'); return; }
     reload();
   }, 300);
 });
